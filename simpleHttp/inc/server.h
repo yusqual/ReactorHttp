@@ -1,7 +1,9 @@
 #ifndef _SERVER_H_
 #define _SERVER_H_
 
-#include "base.h"
+#include <stdbool.h>
+#define _C_PROJECT_
+#include <myheads/base.h>
 #include "threadpool.h"
 
 // 初始化监听的套接字

@@ -3,7 +3,7 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <cassert>
+#include <assert.h>
 #include <sys/sendfile.h>
 #include <dirent.h>
 #include <ctype.h>
@@ -16,20 +16,20 @@ struct sockInfo {
 int initListenFd(unsigned short port) {
     // 1. 创建监听的fd
     int lfd = socket(AF_INET, SOCK_STREAM, 0);  // TCP
-    errif_exit(lfd == -1, "socket");
+    errif_exit(lfd == -1, "socket", true);
     // 2. 设置端口复用
     int ret = setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &lfd, sizeof(lfd));
-    errif_exit(ret == -1, "setsockopt");
+    errif_exit(ret == -1, "setsockopt", true);
     // 3. 绑定
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = INADDR_ANY;
     ret = bind(lfd, (struct sockaddr*) &addr, sizeof(addr));
-    errif_exit(ret == -1, "bind");
+    errif_exit(ret == -1, "bind", true);
     // 4. 设置监听
     ret = listen(lfd, 128);
-    errif_exit(ret == -1, "listen");
+    errif_exit(ret == -1, "listen", true);
     // 返回fd
     return lfd;
 }
@@ -37,13 +37,13 @@ int initListenFd(unsigned short port) {
 int epollRun(int lfd, ThreadPool* pool) {
     // 1. 创建epoll实例
     int epfd = epoll_create(1);
-    errif_exit(epfd == -1, "epoll_create");
+    errif_exit(epfd == -1, "epoll_create", true);
     // 2. lfd 上树
     struct epoll_event ev;  // 添加到epoll树的结构体
     ev.data.fd = lfd;
     ev.events = EPOLLIN | EPOLLET;  // 检测读事件, 使用线程池后需改为边缘模式, 具体原因不明
     int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, lfd, &ev);
-    errif_exit(ret == -1, "epoll_ctl add");
+    errif_exit(ret == -1, "epoll_ctl add", true);
     // 3. 监听
     struct epoll_event evs[1024];
     int size_evs = sizeof(evs) / sizeof(struct epoll_event);
