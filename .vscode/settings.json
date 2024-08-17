@@ -3,4 +3,5 @@
         "args": ["9999", "./res"]
     },
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+
 }
