@@ -1,4 +1,4 @@
-#include "channel_map.h"
+#include "channelMap.h"
 
 struct ChannelMap* channelMapInit(int size) {
     struct ChannelMap* map = (struct ChannelMap*)malloc(sizeof(struct ChannelMap));

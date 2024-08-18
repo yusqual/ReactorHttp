@@ -66,12 +66,10 @@ int epollDispatch(struct EventLoop* eventLoop, int timeout) {
             continue;
         }
         if (events & EPOLLIN) { // 读事件
-            // TODO
-
+            eventActivate(eventLoop, fd, ReadEvent);
         }
         if (events & EPOLLOUT) { // 写事件
-            // TODO
-
+            eventActivate(eventLoop, fd, WriteEvent);
         }
     }
     return 0;

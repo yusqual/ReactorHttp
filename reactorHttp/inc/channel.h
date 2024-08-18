@@ -22,8 +22,8 @@ struct Channel {
     // 触发事件
     int events;
     // 回调函数
-    handleFunc readFunc;
-    handleFunc writeFunc;
+    handleFunc readCallback;
+    handleFunc writeCallback;
     // 回调函数的参数
     void* arg;
 };

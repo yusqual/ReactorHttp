@@ -2,5 +2,12 @@
     "cmake.debugConfig": {
         "args": ["9999", "./res"]
     },
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "files.associations": {
+        "dispatcher.h": "c",
+        "channel.h": "c",
+        "eventloop.h": "c",
+        "stdbool.h": "c",
+        "pthread.h": "c"
+    }
 }

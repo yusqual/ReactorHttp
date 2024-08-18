@@ -87,12 +87,10 @@ int pollDispatch(struct EventLoop* eventLoop, int timeout) {
     for (int i = 0, done = 0; i <= data->maxfd && done < count; ++i) {
         if (data->fds[i].fd == -1) continue;
         if (data->fds[i].revents & POLLIN) {
-            // TODO
-            
+            eventActivate(eventLoop, data->fds[i].fd, ReadEvent);
         }
         if (data->fds[i].revents & POLLOUT) {
-            // TODO
-            
+            eventActivate(eventLoop, data->fds[i].fd, WriteEvent);
         }
         ++done;
     }

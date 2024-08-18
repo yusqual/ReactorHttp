@@ -5,8 +5,8 @@ struct Channel* channelInit(int fd, int events, handleFunc readFunc, handleFunc 
     errif_exit(channel == NULL, "channel malloc", true);
     channel->fd = fd;
     channel->events = events;
-    channel->readFunc = readFunc;
-    channel->writeFunc = writeFunc;
+    channel->readCallback = readFunc;
+    channel->writeCallback = writeFunc;
     channel->arg = arg;
     return channel;
 }

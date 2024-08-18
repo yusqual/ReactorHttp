@@ -67,12 +67,10 @@ int selectDispatch(struct EventLoop* eventLoop, int timeout) {
     errif_exit(count == -1, "select", true);
     for (int i = 0; i < max_fds_size; ++i) {
         if (FD_ISSET(i, &rdtmp)) {
-            // TODO
-
+            eventActivate(eventLoop, i, ReadEvent);
         }
         if (FD_ISSET(i, &wrtmp)) {
-            // TODO
-            
+            eventActivate(eventLoop, i, WriteEvent);
         }
     }
     return 0;
