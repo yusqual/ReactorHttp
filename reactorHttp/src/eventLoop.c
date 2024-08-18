@@ -48,6 +48,7 @@ int eventLoopRun(struct EventLoop* evLoop) {
     struct Dispatcher* dispatcher = evLoop->dispatcher;
     while (evLoop->isRunning) {
         dispatcher->dispatch(evLoop, 2000);  // 超时时长2s
+        eventLoopProcessTask(evLoop);
     }
     return 0;
 }
@@ -88,7 +89,7 @@ int eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int type
     */
     if (evLoop->threadId == pthread_self()) {
         // 当前是子线程, 处理任务队列中的任务
-
+        eventLoopProcessTask(evLoop);
     } else {
         // 当前是主线程 -- 告诉子线程处理任务队列中的任务
         // 1. 子线程在工作 2. 子线程被阻塞了:select, poll, epoll
@@ -96,5 +97,64 @@ int eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int type
         taskWakeup(evLoop);
     }
 
+    return 0;
+}
+
+int eventLoopProcessTask(struct EventLoop* evLoop) {
+    pthread_mutex_lock(&evLoop->mutex);
+    struct ChannelElement* head = evLoop->head;
+    while (head) {
+        struct Channel* channel = head->channel;
+        if (head->type == ADD) {
+            eventLoopAdd(evLoop, channel);
+        } else if (head->type == DEL) {
+            eventLoopDel(evLoop, channel);
+        } else if (head->type == MOD) {
+            eventLoopMod(evLoop, channel);
+        }
+        struct ChannelElement* tmp = head;
+        head = head->next;
+        free(tmp);
+    }
+    evLoop->head = evLoop->tail = NULL;
+    pthread_mutex_unlock(&evLoop->mutex);
+    return 0;
+}
+
+int eventLoopAdd(struct EventLoop* evLoop, struct Channel* channel) {
+    int fd = channel->fd;
+    struct ChannelMap* channelmap = evLoop->channelmap;
+    if (fd >= channelmap->size) {
+        // 扩容
+        if (!channelMapResize(channelmap, fd, sizeof(struct Channel*))) return -1;
+    }
+    // 找到fd对应的数组元素位置并存储
+    if (channelmap->list[fd] == NULL) {
+        channelmap->list[fd] = channel;
+        return evLoop->dispatcher->add(channel, evLoop);
+    }
+    return -1;
+}
+
+int eventLoopDel(struct EventLoop* evLoop, struct Channel* channel) {
+    int fd = channel->fd;
+    struct ChannelMap* channelmap = evLoop->channelmap;
+    if (fd >= channelmap->size) return -1;
+    // 找到fd对应的数组元素位置并存储
+    return evLoop->dispatcher->remove(channel, evLoop);
+}
+
+int eventLoopMod(struct EventLoop* evLoop, struct Channel* channel) {
+    int fd = channel->fd;
+    struct ChannelMap* channelmap = evLoop->channelmap;
+    if (fd >= channelmap->size || channelmap->list[fd] == NULL) return -1;
+    return evLoop->dispatcher->modify(channel, evLoop);
+}
+
+int destroyChannel(struct EventLoop* evLoop, struct Channel* channel) {
+    evLoop->channelmap->list[channel->fd] = NULL;
+    close(channel->fd);
+    free(channel);
+    channel = NULL;
     return 0;
 }
