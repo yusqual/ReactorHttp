@@ -39,19 +39,19 @@ struct EventLoop {
 struct EventLoop* eventLoopInit();  // 主线程
 struct EventLoop* eventLoopInitEx(const char* threadName);// 子线程
 // 启动反应堆模型
-int eventLoopRun(struct EventLoop* evLoop);
+bool eventLoopRun(struct EventLoop* evLoop);
 // 处理激活的文件描述符
-int eventActivate(struct EventLoop* evLoop, int fd, int event);
+bool eventActivate(struct EventLoop* evLoop, int fd, int event);
 // 添加任务到任务队列
-int eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int type);
+bool eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int type);
 // 处理任务队列中的任务
-int eventLoopProcessTask(struct EventLoop* evLoop);
+bool eventLoopProcessTask(struct EventLoop* evLoop);
 // 处理dispatcher中的节点
-int eventLoopAdd(struct EventLoop* evLoop, struct Channel* channel);
-int eventLoopDel(struct EventLoop* evLoop, struct Channel* channel);
-int eventLoopMod(struct EventLoop* evLoop, struct Channel* channel);
+bool eventLoopAdd(struct EventLoop* evLoop, struct Channel* channel);
+bool eventLoopDel(struct EventLoop* evLoop, struct Channel* channel);
+bool eventLoopMod(struct EventLoop* evLoop, struct Channel* channel);
 // 释放channel
-int destroyChannel(struct EventLoop* evLoop, struct Channel* channel);
+bool destroyChannel(struct EventLoop* evLoop, struct Channel* channel);
 
 
 #endif // _EVENTLOOP_H_

@@ -3,11 +3,13 @@
 
 struct ThreadPool* threadPoolInit(struct EventLoop* mainLoop, int threadNum) {
     struct ThreadPool* pool = (struct ThreadPool*)malloc(sizeof(struct ThreadPool));
+    errif_exit(pool == NULL, "threadPoolInit_1", true);
     pool->index = 0;
     pool->isStart = false;
     pool->mainLoop = mainLoop;
     pool->threadNum = threadNum;
     pool->workerThreads = (struct WorkerThread*)malloc(threadNum * sizeof(struct WorkerThread));
+    errif_exit(pool->workerThreads == NULL, "threadPoolInit_2", true);
     return pool;
 }
 

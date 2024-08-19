@@ -2,11 +2,11 @@
 #include <sys/poll.h>
 
 static void* pollInit();
-static int pollAdd(struct Channel* channel, struct EventLoop* eventLoop);
-static int pollRemove(struct Channel* channel, struct EventLoop* eventLoop);
-static int pollModify(struct Channel* channel, struct EventLoop* eventLoop);
-static int pollDispatch(struct EventLoop* eventLoop, int timeout);
-static int pollClear(struct EventLoop* eventLoop);
+static bool pollAdd(struct Channel* channel, struct EventLoop* eventLoop);
+static bool pollRemove(struct Channel* channel, struct EventLoop* eventLoop);
+static bool pollModify(struct Channel* channel, struct EventLoop* eventLoop);
+static bool pollDispatch(struct EventLoop* eventLoop, int timeout);
+static bool pollClear(struct EventLoop* eventLoop);
 
 const int max_fds_size = 520;
 
@@ -28,6 +28,7 @@ struct Dispatcher pollDispatcher = {
 
 void* pollInit() {
     struct PollData* data = (struct PollData*)malloc(sizeof(struct PollData));
+    errif_exit(data == NULL, "pollInit", true);
     data->maxfd = 0;
     for (int i = 0; i < max_fds_size; ++i) {
         data->fds[i].fd = -1;
@@ -37,8 +38,8 @@ void* pollInit() {
     return data;
 }
 
-int pollAdd(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct PollData* data = (struct PollData*)malloc(sizeof(struct PollData));
+bool pollAdd(struct Channel* channel, struct EventLoop* eventLoop) {
+    struct PollData* data = (struct PollData*)eventLoop->dispatcherData;
     int events = 0;
     if (channel->events & ReadEvent) events |= POLLIN;
     if (channel->events & WriteEvent) events |= POLLOUT;
@@ -47,40 +48,40 @@ int pollAdd(struct Channel* channel, struct EventLoop* eventLoop) {
             data->fds[i].fd = channel->fd;
             data->fds[i].events = events;
             data->maxfd = data->maxfd < i ? i : data->maxfd;
-            return 0;
+            return true;
         }
     }
-    return -1;
+    return false;
 }
 
-int pollRemove(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct PollData* data = (struct PollData*)malloc(sizeof(struct PollData));
+bool pollRemove(struct Channel* channel, struct EventLoop* eventLoop) {
+    struct PollData* data = (struct PollData*)eventLoop->dispatcherData;
     for (int i = 0; i < max_fds_size; ++i) {
         if (data->fds[i].fd == channel->fd) {
             data->fds[i].fd = -1;
             data->fds[i].events = 0;
             data->fds[i].revents = 0;
-            return 0;
+            return true;
         }
     }
-    return -1;
+    return false;
 }
 
-int pollModify(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct PollData* data = (struct PollData*)malloc(sizeof(struct PollData));
+bool pollModify(struct Channel* channel, struct EventLoop* eventLoop) {
+    struct PollData* data = (struct PollData*)eventLoop->dispatcherData;
     int events = 0;
     if (channel->events & ReadEvent) events |= POLLIN;
     if (channel->events & WriteEvent) events |= POLLOUT;
     for (int i = 0; i < max_fds_size; ++i) {
         if (data->fds[i].fd == channel->fd) {
             data->fds[i].events = events;
-            return 0;
+            return true;
         }
     }
-    return -1;
+    return false;
 }
 
-int pollDispatch(struct EventLoop* eventLoop, int timeout) {
+bool pollDispatch(struct EventLoop* eventLoop, int timeout) {
     struct PollData* data = (struct PollData*)eventLoop->dispatcherData;
     int count = poll(data->fds, data->maxfd+1, timeout);
     errif_exit(count == -1, "poll", true);
@@ -94,11 +95,12 @@ int pollDispatch(struct EventLoop* eventLoop, int timeout) {
         }
         ++done;
     }
-    return 0;
+    return true;
 }
 
-int pollClear(struct EventLoop* eventLoop) {
+bool pollClear(struct EventLoop* eventLoop) {
     struct PollData* data = (struct PollData*)eventLoop->dispatcherData;
     free(data);
+    return true;
 }
 

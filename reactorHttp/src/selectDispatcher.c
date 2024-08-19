@@ -2,11 +2,11 @@
 #include <sys/select.h>
 
 static void* selectInit();
-static int selectAdd(struct Channel* channel, struct EventLoop* eventLoop);
-static int selectRemove(struct Channel* channel, struct EventLoop* eventLoop);
-static int selectModify(struct Channel* channel, struct EventLoop* eventLoop);
-static int selectDispatch(struct EventLoop* eventLoop, int timeout);
-static int selectClear(struct EventLoop* eventLoop);
+static bool selectAdd(struct Channel* channel, struct EventLoop* eventLoop);
+static bool selectRemove(struct Channel* channel, struct EventLoop* eventLoop);
+static bool selectModify(struct Channel* channel, struct EventLoop* eventLoop);
+static bool selectDispatch(struct EventLoop* eventLoop, int timeout);
+static bool selectClear(struct EventLoop* eventLoop);
 
 static void addFdSet(struct Channel* channel, struct EventLoop* eventLoop);
 static void clrFdSet(struct Channel* channel, struct EventLoop* eventLoop);
@@ -31,32 +31,35 @@ struct Dispatcher selectDispatcher = {
 
 void* selectInit() {
     struct SelectData* data = (struct SelectData*)malloc(sizeof(struct SelectData));
+    errif_exit(data == NULL, "selectInit", true);
     FD_ZERO(&data->readfds);
     FD_ZERO(&data->writefds);
     return data;
 }
 
-int selectAdd(struct Channel* channel, struct EventLoop* eventLoop) {
-    if (channel->fd >= max_fds_size) return -1;
-    struct SelectData* data = (struct SelectData*)malloc(sizeof(struct SelectData));
+bool selectAdd(struct Channel* channel, struct EventLoop* eventLoop) {
+    if (channel->fd >= max_fds_size) return false;
+    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
     addFdSet(channel, eventLoop);
-    return 0;
+    return true;
 }
 
-int selectRemove(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct SelectData* data = (struct SelectData*)malloc(sizeof(struct SelectData));
+bool selectRemove(struct Channel* channel, struct EventLoop* eventLoop) {
+    if (channel->fd >= max_fds_size) return false;
+    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
     clrFdSet(channel, eventLoop);
-    return 0;
+    return true;
 }
 
-int selectModify(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct SelectData* data = (struct SelectData*)malloc(sizeof(struct SelectData));
+bool selectModify(struct Channel* channel, struct EventLoop* eventLoop) {
+    if (channel->fd >= max_fds_size) return false;
+    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
     addFdSet(channel, eventLoop);
     clrFdSet(channel, eventLoop);
-    return 0;
+    return true;
 }
 
-int selectDispatch(struct EventLoop* eventLoop, int timeout) {
+bool selectDispatch(struct EventLoop* eventLoop, int timeout) {
     struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
     struct timeval val;
     val.tv_sec = timeout;
@@ -73,12 +76,13 @@ int selectDispatch(struct EventLoop* eventLoop, int timeout) {
             eventActivate(eventLoop, i, WriteEvent);
         }
     }
-    return 0;
+    return true;
 }
 
-int selectClear(struct EventLoop* eventLoop) {
+bool selectClear(struct EventLoop* eventLoop) {
     struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
     free(data);
+    return true;
 }
 
 void addFdSet(struct Channel* channel, struct EventLoop* eventLoop) {

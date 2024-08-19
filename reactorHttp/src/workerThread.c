@@ -1,12 +1,12 @@
 #include "workerThread.h"
 
-int workerThreadInit(struct WorkerThread* thread, int index) {
+bool workerThreadInit(struct WorkerThread* thread, int index) {
     thread->evLoop = NULL;
     thread->threadId = 0;
     sprintf(thread->name, "SubThread-%d", index);
     pthread_mutex_init(&thread->mutex, NULL);
     pthread_cond_init(&thread->cond, NULL);
-    return 0;
+    return true;
 }
 
 void* subThreadRunning(void* arg) {
@@ -21,7 +21,8 @@ void* subThreadRunning(void* arg) {
 
 void workerThreadRun(struct WorkerThread* thread) {
     // 创建子线程
-    pthread_create(&thread->threadId, NULL, subThreadRunning, thread);
+    int res = pthread_create(&thread->threadId, NULL, subThreadRunning, thread);
+    errif_exit(res != 0, "workerThreadRun", true);
     // 阻塞主线程, 保证subThreadRunning执行完毕,evloop被初始化完毕
     pthread_mutex_lock(&thread->mutex);
     while (thread->evLoop == NULL) {

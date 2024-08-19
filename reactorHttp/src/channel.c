@@ -11,7 +11,7 @@ struct Channel* channelInit(int fd, int events, handleFunc readFunc, handleFunc 
     return channel;
 }
 
-void writeEventEnable(struct Channel* channel, bool flag) {
+void modifyWriteEvent(struct Channel* channel, bool flag) {
     if (flag)
         channel->events |= WriteEvent;
     else

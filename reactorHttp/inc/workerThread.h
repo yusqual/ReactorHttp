@@ -13,7 +13,7 @@ struct WorkerThread {
 };
 
 // 初始化, index 为在线程池中的序号
-int workerThreadInit(struct WorkerThread* thread, int index);
+bool workerThreadInit(struct WorkerThread* thread, int index);
 // 启动线程
 void workerThreadRun(struct WorkerThread* thread);
 
