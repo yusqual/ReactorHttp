@@ -21,5 +21,9 @@ bool bufferSizeDetection(struct Buffer* buffer, int size);
 int bufferWriteableSize(struct Buffer* buffer);
 // 获取剩余的可读的内存容量
 int bufferReadableSize(struct Buffer* buffer);
+// 写内存 -> 1. 直接写  2. 接收套接字数据
+bool bufferAppendData(struct Buffer* buffer, const char* data, int size);
+bool bufferAppendString(struct Buffer* buffer, const char* data);
+int bufferSocketRead(struct Buffer* buffer, int fd);
 
 #endif // _BUFFER_H_

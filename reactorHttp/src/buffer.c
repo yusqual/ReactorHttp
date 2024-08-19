@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include <sys/uio.h>
 
 struct Buffer* bufferInit(int capacity) {
     struct Buffer* buffer = (struct Buffer*) malloc(sizeof(struct Buffer));
@@ -51,4 +52,41 @@ int bufferWriteableSize(struct Buffer* buffer) {
 
 int bufferReadableSize(struct Buffer* buffer) {
     return buffer->writePos - buffer->readPos;
+}
+
+bool bufferAppendData(struct Buffer* buffer, const char* data, int size) {
+    if (buffer == NULL || data == NULL || data <= 0) return false;
+    if (bufferSizeDetection(buffer, size) == false) return false;
+    // 数据拷贝
+    memcpy(buffer->data+buffer->writePos, data, size);
+    buffer->writePos += size;
+    return true;
+}
+
+bool bufferAppendString(struct Buffer* buffer, const char* data) {
+    int size = strlen(data);
+    return bufferAppendData(buffer, data, size);
+}
+
+int bufferSocketRead(struct Buffer* buffer, int fd) {
+    // read/recv/readv
+    struct iovec vec[2];
+    // 初始化数组元素
+    int writeable = bufferWriteableSize(buffer);
+    vec[0].iov_base = buffer->data + buffer->writePos;
+    vec[0].iov_len = writeable;
+    vec[1].iov_base = (char*)calloc(40960, 1);
+    vec[1].iov_len = 40960;
+    // 接收数据
+    int result = readv(fd, vec, 2);
+    if (result == -1) return -1;
+    if (result <= writeable) {
+        // 未使用第二块内存
+        buffer->writePos += result;
+    } else {
+        buffer->writePos = buffer->capacity;
+        bufferAppendData(buffer, vec[1].iov_base, result - writeable);
+    }
+    free(vec[1].iov_base);
+    return result;
 }
