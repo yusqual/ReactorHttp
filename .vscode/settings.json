@@ -8,6 +8,7 @@
         "channel.h": "c",
         "eventloop.h": "c",
         "stdbool.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "channelmap.h": "c"
     }
 }

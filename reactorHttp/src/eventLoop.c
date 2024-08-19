@@ -94,7 +94,7 @@ bool eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int typ
      *   2. 不能让主线程处理任务队列, 需要由当前的子线程取处理
      */
     if (evLoop->threadId == pthread_self()) {
-        // 当前是子线程, 处理任务队列中的任务
+        // 当前是子(主)线程, 处理任务队列中的任务
         eventLoopProcessTask(evLoop);
     } else {
         // 当前是主线程 -- 告诉子线程处理任务队列中的任务
