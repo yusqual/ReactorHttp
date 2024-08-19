@@ -1,6 +1,7 @@
 #ifndef _BUFFER_H_
 #define _BUFFER_H_
 
+#define _C_PROJECT_
 #include <myheads/base.h>
 
 struct Buffer {
@@ -25,5 +26,7 @@ int bufferReadableSize(struct Buffer* buffer);
 bool bufferAppendData(struct Buffer* buffer, const char* data, int size);
 bool bufferAppendString(struct Buffer* buffer, const char* data);
 int bufferSocketRead(struct Buffer* buffer, int fd);
+// 根据\r\n取出一行, 找到其在数据块中的位置,返回该位置
+char* bufferFindCRLF(struct Buffer* buffer);
 
 #endif // _BUFFER_H_

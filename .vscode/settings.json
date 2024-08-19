@@ -9,6 +9,8 @@
         "eventloop.h": "c",
         "stdbool.h": "c",
         "pthread.h": "c",
-        "channelmap.h": "c"
+        "channelmap.h": "c",
+        "strings_fortified.h": "c",
+        "base.h": "c"
     }
 }

@@ -15,6 +15,7 @@ int processRead(void* arg) {
 
 struct TcpConnection* tcpConnectionInit(int fd, struct EventLoop* evLoop) {
     struct TcpConnection* conn = (struct TcpConnection*)malloc(sizeof(struct TcpConnection));
+    errif_exit(conn == NULL, "tcpConnectionInit", true);
     conn->evLoop = evLoop;
     conn->readBuf = bufferInit(10240);
     conn->writeBuf = bufferInit(10240);

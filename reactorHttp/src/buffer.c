@@ -91,3 +91,10 @@ int bufferSocketRead(struct Buffer* buffer, int fd) {
     free(vec[1].iov_base);
     return result;
 }
+
+char* bufferFindCRLF(struct Buffer* buffer) {
+    // strstr -> 大字符串中匹配子字符串, 但是遇到\0就结束
+    // menmen -> 大数据块中匹配子数据块, 需要指定数据块大小
+    char* ptr = memmem(buffer->data + buffer->readPos, bufferReadableSize(buffer), "\r\n", sizeof("\r\n"));
+    return ptr;
+}
