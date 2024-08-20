@@ -1,6 +1,10 @@
 #include "httpRequest.h"
 #include <strings.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/sendfile.h>
+#include <assert.h>
 
 const int HeaderSize = 12;
 
@@ -9,7 +13,7 @@ struct HttpRequest* httpRequestInit() {
     errif_exit(request == NULL, "httpRequestInit", true);
     request->reqHeaders = NULL;
     httpRequestReset(request);
-    request->reqHeaders = (struct HttpRequest*) malloc(sizeof(struct HttpRequest) * HeaderSize);
+    request->reqHeaders = (struct RequestHeader*) malloc(sizeof(struct RequestHeader) * HeaderSize);
     return request;
 }
 
@@ -155,7 +159,8 @@ bool parseHttpRequestHeader(struct HttpRequest* request, struct Buffer* readBuf)
     return false;
 }
 
-bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf) {
+bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf,
+                      struct HttpResponse* response, struct Buffer* sendBuf, int socket) {
     bool result = true;
     while (request->curState != ParseReqDone) {
         switch (request->curState) {
@@ -174,25 +179,27 @@ bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf) {
     }
     if (result && request->curState == ParseReqDone) {
         // 1. 根据解析出的数据,对客户端的请求做出处理
-        // 2.
+        processHttpRequest(request, response);
+        // 2. 组织响应数据并发送给客户端
+        httpResponsePrepareMsg(response, sendBuf, socket);
     }
-    request->curState = ParseReqLine;
+    request->curState = ParseReqLine;  // 状态还原, 保证能处理后面的http请求
     return result;
 }
 
-// 处理基于GET的http请求
-bool processHttpRequest(struct HttpRequest* request) {
+// 解析基于GET的http请求
+bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* response) {
     if (strcasecmp(request->method, "get") != 0) {  // strcasecmp 不区分大小写
         return -1;
     }
     decodeMsg(request->url, request->url);
-    char* path = (char*)malloc(sizeof(request->url) + 1);
+    char* path = (char*) malloc(sizeof(request->url) + 1);
     // 格式化访问的资源路径, 在最前面加上'.'来访问本地目录
     path[0] = '.';
     memcpy(path + 1, request->url, sizeof(request->url));
     free(request->url);
     request->url = path;
-    
+
     printf("method: %s, path: %s\n", request->method, request->url);
 
     // 获取文件属性, 判断是文件还是目录
@@ -202,17 +209,35 @@ bool processHttpRequest(struct HttpRequest* request) {
         // 文件不存在 -> 回复404
         // sendHeadMsg(cfd, 404, "Not Found", getFileType(".html"), -1);
         // sendFile("404.html", cfd);
+        strcpy(response->fileName, "404.html");
+        response->statusCode = NotFound;
+        strcpy(response->statusMsg, "Not Found");
+        // 响应头
+        httpRequestAddHeader(response, "Content-type", getFileType(".html"));
+        response->sendDataFunc = sendFile;
         return 0;
     }
+    strcpy(response->fileName, request->url);
+    response->statusCode = OK;
+    strcpy(response->statusMsg, "OK");
     // 判断是否是目录
     if (S_ISDIR(st.st_mode)) {
         // 目录, 返回目录中的内容
         // sendHeadMsg(cfd, 200, "OK", getFileType(".html"), -1);
         // sendDir(path, cfd);
+        // 响应头
+        httpRequestAddHeader(response, "Content-type", getFileType(".html"));
+        response->sendDataFunc = sendDir;
     } else {
         // 文件, 返回文件内容
         // sendHeadMsg(cfd, 200, "OK", getFileType(path), st.st_size);
         // sendFile(path, cfd);
+        // 响应头
+        char tmp[12] = {0};
+        sprintf("%ld", st.st_size);
+        httpRequestAddHeader(response, "Content-type", getFileType(request->url));
+        httpRequestAddHeader(response, "Content-length", tmp);
+        response->sendDataFunc = sendFile;
     }
     return 0;
 }
@@ -250,4 +275,107 @@ void decodeMsg(char* to, const char* from) {
         }
     }
     *to = '\0';
+}
+
+// 根据文件后缀返回http响应头中的content-type
+const char* getFileType(const char* name) {
+    // a.jpg a.mp4 a.html
+    // 自右向左查找‘.’字符, 如不存在返回NULL
+    const char* dot = strrchr(name, '.');
+    if (dot == NULL)
+        return "text/plain; charset=utf-8";  // 纯文本
+    if (strcmp(dot, ".html") == 0 || strcmp(dot, ".htm") == 0)
+        return "text/html; charset=utf-8";
+    if (strcmp(dot, ".jpg") == 0 || strcmp(dot, ".jpeg") == 0)
+        return "image/jpeg";
+    if (strcmp(dot, ".gif") == 0)
+        return "image/gif";
+    if (strcmp(dot, ".png") == 0)
+        return "image/png";
+    if (strcmp(dot, ".css") == 0)
+        return "text/css";
+    if (strcmp(dot, ".au") == 0)
+        return "audio/basic";
+    if (strcmp(dot, ".wav") == 0)
+        return "audio/wav";
+    if (strcmp(dot, ".avi") == 0)
+        return "video/x-msvideo";
+    if (strcmp(dot, ".mov") == 0 || strcmp(dot, ".qt") == 0)
+        return "video/quicktime";
+    if (strcmp(dot, ".mpeg") == 0 || strcmp(dot, ".mpe") == 0)
+        return "video/mpeg";
+    if (strcmp(dot, ".vrml") == 0 || strcmp(dot, ".wrl") == 0)
+        return "model/vrml";
+    if (strcmp(dot, ".midi") == 0 || strcmp(dot, ".mid") == 0)
+        return "audio/midi";
+    if (strcmp(dot, ".mp3") == 0)
+        return "audio/mp3";
+    if (strcmp(dot, ".ogg") == 0)
+        return "application/ogg";
+    if (strcmp(dot, ".pac") == 0)
+        return "application/x-ns-proxy-autoconfig";
+    if (strcmp(dot, ".pdf") == 0)
+        return "application/pdf";
+
+    return "text/plain; charset=utf-8";
+}
+
+int sendFile(const char* file, struct Buffer* sendBuf, int cfd) {
+    // 1. 打开文件
+    int fd = open(file, O_RDONLY);
+    assert(fd > 0);
+#if 1
+    char buf[1024];
+    while (true) {
+        bzero(buf, sizeof(buf));
+        int len = read(fd, buf, sizeof(buf));
+        if (len > 0) {
+            // send(cfd, buf, len, 0);
+            bufferAppendData(sendBuf, buf, len);
+            usleep(1);  // 减缓接收端压力
+        } else if (len < 0) {
+            close(fd);
+            perror("sendFile read");
+            return -1;
+        } else break;
+    }
+#else
+    off_t offset = 0;
+    int size_file = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+    while (offset < size_file) {                         // sendfile中有块缓存,若文件过大,需不断调用该函数.第三个参数会自动改为本次发送的偏移量
+        sendfile(cfd, fd, &offset, size_file - offset);  // 使用系统提供函数来发送文件
+    }
+#endif
+    close(fd);
+    return 0;
+}
+
+void sendDir(const char* dir, struct Buffer* sendBuf, int cfd) {
+    char buf[4096] = {0};
+    sprintf(buf, "<html><head><title>%s</title></head><body><table>", dir);
+    struct dirent** namelist;
+    int num = scandir(dir, &namelist, NULL, alphasort);
+    for (int i = 0; i < num; ++i) {
+        // 取出文件名
+        char* name = namelist[i]->d_name;
+        struct stat st;
+        char subPath[1024] = {0};
+        sprintf(subPath, "%s/%s", dir, name);
+        stat(subPath, &st);
+        if (S_ISDIR(st.st_mode)) {
+            sprintf(buf + strlen(buf), "<tr><td><a href=\"%s/\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);
+        } else {
+            sprintf(buf + strlen(buf), "<tr><td><a href=\"%s\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);
+        }
+        // send(cfd, buf, strlen(buf), 0);
+        bufferAppendString(sendBuf, buf);
+        bzero(buf, sizeof(buf));
+        free(namelist[i]);
+    }
+    sprintf(buf, "</table></body></html>");
+    // send(cfd, buf, strlen(buf), 0);
+    bufferAppendString(sendBuf, buf);
+    free(namelist);
+    return 0;
 }

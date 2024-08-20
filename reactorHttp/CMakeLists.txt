@@ -1,7 +1,8 @@
 # CMakeLists.txt
 
-# C99
-set(CMAKE_C_STANDARD 99)
+# C11(GNU11)
+set(CMAKE_C_STANDARD 11)
+
 
 # file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/res DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -10,9 +11,20 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 
 # 查找源文件  
 set(SOURCES  
-    src/main.c
-    src/channel.c
+    src/buffer.c
     src/channel_map.c
+    src/channel.c
+    src/epollDispatcher.c
+    src/eventLoop.c
+    src/httpRequest.c
+    src/httpResponse.c
+    src/main.c
+    src/poolDispatcher.c
+    src/selectDispatcher.c
+    src/tcpConnection.c
+    src/tcpServer.c
+    src/threadPool.c
+    src/workerThread.c
 )  
 
 # 创建可执行文件  

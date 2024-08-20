@@ -2,6 +2,7 @@
 #define _HTTPREQUEST_H_
 
 #include "buffer.h"
+#include "httpResponse.h"
 
 struct RequestHeader {
     char* key;
@@ -9,7 +10,7 @@ struct RequestHeader {
 };
 
 // 当前的解析状态
-enum HttpRequestStat{
+enum HttpRequestStat {
     ParseReqLine,
     ParseReqHeaders,
     ParseReqBody,
@@ -43,13 +44,19 @@ bool parseHttpRequestLine(struct HttpRequest* request, struct Buffer* readBuf);
 // 解析请求头, 该函数仅处理一行
 bool parseHttpRequestHeader(struct HttpRequest* request, struct Buffer* readBuf);
 
-// 解析http请求协议
-bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf);
 // 处理http请求
-bool processHttpRequest(struct HttpRequest* request);
+bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf,
+                      struct HttpResponse* response, struct Buffer* sendBuf, int socket);
+// 解析http请求协议
+bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* response);
 
 // 解码字符串
 void decodeMsg(char* to, const char* from);
 
+// 根据文件后缀返回http响应头中的content-type
+const char* getFileType(const char* name);
 
-#endif // _HTTPREQUEST_H_
+int sendFile(const char* file, struct Buffer* sendBuf, int cfd);
+void sendDir(const char* dir, struct Buffer* sendBuf, int cfd);
+
+#endif  // _HTTPREQUEST_H_

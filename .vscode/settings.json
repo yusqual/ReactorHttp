@@ -11,6 +11,12 @@
         "pthread.h": "c",
         "channelmap.h": "c",
         "strings_fortified.h": "c",
-        "base.h": "c"
+        "base.h": "c",
+        "buffer.h": "c",
+        "sendfile.h": "c",
+        "dirent.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c"
     }
 }
