@@ -3,6 +3,7 @@
 
 #ifndef _THREADPOOL_H_
 #define _THREADPOOL_H_
+#define _C_PROJECT_
 
 #include <myheads/base.h>
 #include <pthread.h>
