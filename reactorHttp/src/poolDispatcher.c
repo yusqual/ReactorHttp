@@ -8,7 +8,7 @@ static bool pollModify(struct Channel* channel, struct EventLoop* eventLoop);
 static bool pollDispatch(struct EventLoop* eventLoop, int timeout);
 static bool pollClear(struct EventLoop* eventLoop);
 
-const int max_fds_size = 520;
+#define max_fds_size 520
 
 // poll需要的数据块
 struct PollData {
