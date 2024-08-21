@@ -12,7 +12,7 @@
 const int HeaderSize = 127;
 
 struct HttpRequest* httpRequestInit() {
-    struct HttpRequest* request = (struct HttpRequest*) calloc(sizeof(struct HttpRequest), 1);
+    struct HttpRequest* request = (struct HttpRequest*) malloc(sizeof(struct HttpRequest));
     errif_exit(request == NULL, "httpRequestInit", true);
     request->reqHeaders = NULL;
     httpRequestReset(request);
@@ -22,27 +22,29 @@ struct HttpRequest* httpRequestInit() {
 
 void httpRequestReset(struct HttpRequest* request) {
     request->curState = ParseReqLine;
-    if (request->method) free(request->method);
-    if (request->url) free(request->url);
-    if (request->version) free(request->version);
-    if (request->reqHeaders) {
-        for (int i = 0; i < request->reqHeadersNum; ++i) {
-            if (request->reqHeaders[i].key != NULL) {
-                free(request->reqHeaders[i].key);
-                free(request->reqHeaders[i].value);
-            }
-        }
-        free(request->reqHeaders);
-    }
     request->method = NULL;
     request->url = NULL;
     request->version = NULL;
     request->reqHeadersNum = 0;
 }
 
+void httpRequestResetEx(struct HttpRequest* req) {
+    free(req->url);
+    free(req->method);
+    free(req->version);
+    if (req->reqHeaders != NULL) {
+        for (int i = 0; i < req->reqHeadersNum; ++i) {
+            free(req->reqHeaders[i].key);
+            free(req->reqHeaders[i].value);
+        }
+        free(req->reqHeaders);
+    }
+    httpRequestReset(req);
+}
+
 void httpRequestDestroy(struct HttpRequest* request) {
     if (request != NULL) {
-        httpRequestReset(request);
+        httpRequestResetEx(request);
         free(request);
     }
 }
@@ -199,10 +201,8 @@ bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* respon
     if (strcasecmp(request->method, "get") != 0) {  // strcasecmp 不区分大小写
         return false;
     }
-    printf("request.url 1 : %s\n", request->url);
     decodeMsg(request->url, request->url);
-    printf("request.url 2 : %s\n", request->url);
-    char* path = (char*) malloc(sizeof(request->url) + 10);
+    char* path = (char*) malloc(strlen(request->url) + 10);
     // 格式化访问的资源路径, 在最前面加上'.'来访问本地目录
     path[0] = '.';
     memcpy(path + 1, request->url, strlen(request->url));
@@ -245,7 +245,7 @@ bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* respon
         // 响应头
         char tmp[12] = {0};
         sprintf(tmp, "%ld", st.st_size);
-        httpResponseAddHeader(response, "Content-type", getFileType(response->fileName));
+        httpResponseAddHeader(response, "Content-type", getFileType(request->url));
         httpResponseAddHeader(response, "Content-length", tmp);
         response->sendDataFunc = sendFile;
     }
@@ -344,7 +344,6 @@ void sendFile(const char* file, struct Buffer* sendBuf, int cfd) {
 #ifndef MSG_SEND_AUTO
             bufferSendData(sendBuf, cfd);
 #endif                  // MSG_SEND_AUTO
-            usleep(1);  // 减缓接收端压力
         } else if (len < 0) {
             close(fd);
             perror("sendFile read");

@@ -46,6 +46,7 @@ int acceptConnection(void* arg) {
     struct EventLoop* evLoop = takeWorkerEventLoop(server->threadPool);
     // 将cfd放到TcpConnection中处理
     tcpConnectionInit(cfd, evLoop);
+    return 0;
 }
 
 void tcpServerRun(struct TcpServer* server) {

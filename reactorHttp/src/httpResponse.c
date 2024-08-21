@@ -8,7 +8,7 @@ struct HttpResponse* httpResponseInit() {
     struct HttpResponse* response = (struct HttpResponse*) malloc(sizeof(struct HttpResponse));
     errif_exit(response == NULL, "httpResponseInit_1", true);
     response->headerNum = 0;
-    response->headers = (struct ResponseHeader*) calloc(res_header_size, sizeof(struct ResponseHeader*));
+    response->headers = (struct ResponseHeader*) malloc(res_header_size * sizeof(struct ResponseHeader));
     errif_exit(response->headers == NULL, "httpResponseInit_2", true);
     response->statusCode = Unknown;
     bzero(response->statusMsg, sizeof(response->statusMsg));

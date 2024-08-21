@@ -31,6 +31,7 @@ struct HttpRequest {
 struct HttpRequest* httpRequestInit();
 // 重置
 void httpRequestReset(struct HttpRequest* request);
+void httpRequestResetEx(struct HttpRequest* req);
 void httpRequestDestroy(struct HttpRequest* request);
 // 获取处理状态
 enum HttpRequestStat httpRequestState(struct HttpRequest* request);
@@ -49,7 +50,6 @@ bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf,
                       struct HttpResponse* response, struct Buffer* sendBuf, int socket);
 // 解析http请求协议
 bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* response);
-
 // 解码字符串
 void decodeMsg(char* to, const char* from);
 

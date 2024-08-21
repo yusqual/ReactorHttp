@@ -38,10 +38,10 @@ int processWrite(void* arg) {
     if (count > 0) {
         // 判断数据是否完全发送
         if (bufferReadableSize(conn->writeBuf) == 0) {
-            // // 不再检测写事件 - 修改channel中保存的事件
-            // modifyWriteEvent(conn->channel, false);
-            // // 修改dispatcher检测的集合 - 添加任务
-            // eventLoopAddTask(conn->evLoop, conn->channel, MOD);
+            // 不再检测写事件 - 修改channel中保存的事件
+            modifyWriteEvent(conn->channel, false);
+            // 修改dispatcher检测的集合 - 添加任务
+            eventLoopAddTask(conn->evLoop, conn->channel, MOD);
             // 删除节点
             eventLoopAddTask(conn->evLoop, conn->channel, DEL);
             // 释放内存

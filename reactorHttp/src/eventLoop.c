@@ -56,7 +56,7 @@ bool eventLoopRun(struct EventLoop* evLoop) {
 }
 
 bool eventActivate(struct EventLoop* evLoop, int fd, int event) {
-    if (evLoop == NULL || fd < 0 || evLoop->channelmap->list[fd] == NULL) return false;
+    if (evLoop == NULL || fd < 0) return false;
     // 取出channel
     struct Channel* channel = evLoop->channelmap->list[fd];
     assert(channel->fd == fd);
@@ -138,7 +138,7 @@ bool eventLoopAdd(struct EventLoop* evLoop, struct Channel* channel) {
         channelmap->list[fd] = channel;
         return evLoop->dispatcher->add(channel, evLoop);
     }
-    return false;
+    return true;
 }
 
 bool eventLoopDel(struct EventLoop* evLoop, struct Channel* channel) {
@@ -160,6 +160,5 @@ bool destroyChannel(struct EventLoop* evLoop, struct Channel* channel) {
     evLoop->channelmap->list[channel->fd] = NULL;
     close(channel->fd);
     free(channel);
-    channel = NULL;
     return true;
 }
