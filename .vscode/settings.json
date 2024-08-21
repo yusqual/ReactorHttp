@@ -17,6 +17,9 @@
         "dirent.h": "c",
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "tcpconnection.h": "c",
+        "strings.h": "c",
+        "stat.h": "c"
     }
 }

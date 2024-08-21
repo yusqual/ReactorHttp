@@ -3,7 +3,7 @@
 
 #include "channel.h"
 #include "eventLoop.h"
-
+struct EventLoop;
 struct Dispatcher {
     // 初始化 -- 初始化epoll poll 或 select 所需的数据块(dispatcherData)
     void* (*init)();

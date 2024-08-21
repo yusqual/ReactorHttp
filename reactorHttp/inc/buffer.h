@@ -28,5 +28,7 @@ bool bufferAppendString(struct Buffer* buffer, const char* data);
 int bufferSocketRead(struct Buffer* buffer, int fd);
 // 根据\r\n取出一行, 找到其在数据块中的位置,返回该位置
 char* bufferFindCRLF(struct Buffer* buffer);
+// 发送数据
+int bufferSendData(struct Buffer* buffer, int socket);
 
 #endif // _BUFFER_H_

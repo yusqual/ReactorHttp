@@ -1,6 +1,8 @@
 #include "tcpServer.h"
 #include <arpa/inet.h>
 #include "tcpConnection.h"
+#include "log.h"
+
 
 struct TcpServer* tcpServerInit(unsigned short port, int threadNum) {
     struct TcpServer* tcp = (struct TcpServer*)malloc(sizeof(struct TcpServer));
@@ -54,4 +56,5 @@ void tcpServerRun(struct TcpServer* server) {
     eventLoopAddTask(server->mainLoop, channel, ADD);
     // 启动反应堆模型
     eventLoopRun(server->mainLoop);
+    DEBUG("服务器启动成功!");
 }

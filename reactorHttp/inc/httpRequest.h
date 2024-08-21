@@ -56,7 +56,7 @@ void decodeMsg(char* to, const char* from);
 // 根据文件后缀返回http响应头中的content-type
 const char* getFileType(const char* name);
 
-int sendFile(const char* file, struct Buffer* sendBuf, int cfd);
+void sendFile(const char* file, struct Buffer* sendBuf, int cfd);
 void sendDir(const char* dir, struct Buffer* sendBuf, int cfd);
 
 #endif  // _HTTPREQUEST_H_

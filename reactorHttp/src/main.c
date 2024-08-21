@@ -1,5 +1,5 @@
-#include "channel.h"
-#include <unistd.h>
+#include "log.h"
+#include "tcpServer.h"
 
 int main(int argc, const char* argv[]) {
     if (argc < 3) {
@@ -19,5 +19,8 @@ int main(int argc, const char* argv[]) {
         perror("getcwd() error\n");
     }
 
+    // start server
+    struct TcpServer* server = tcpServerInit(port, 4);
+    tcpServerRun(server);
 
 }

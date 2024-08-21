@@ -14,7 +14,7 @@ struct ThreadPool* threadPoolInit(struct EventLoop* mainLoop, int threadNum) {
 }
 
 void threadPoolRun(struct ThreadPool* pool) {
-    errif_exit(pool && !pool->isStart, "threadPoolRun_1", true);
+    errif_exit(pool == NULL && !pool->isStart, "threadPoolRun_1", true);
     errif_exit(pool->mainLoop->threadId != pthread_self(), "threadPoolRun_2", true);    // 操作的线程必须是主线程
     pool->isStart = true;
     if (pool->threadNum) {
@@ -27,7 +27,7 @@ void threadPoolRun(struct ThreadPool* pool) {
 }
 
 struct EventLoop* takeWorkerEventLoop(struct ThreadPool* pool) {
-    errif_exit(pool->isStart, "takeWorkerEventLoop_1", true);
+    errif_exit(!pool->isStart, "takeWorkerEventLoop_1", true);
     errif_exit(pool->mainLoop->threadId != pthread_self(), "takeWorkerEventLoop_2", true);    // 操作的线程必须是主线程
     // 从线程池中找一个子线程,然后取出里面的反应堆实例
     struct EventLoop* evLoop = pool->mainLoop;

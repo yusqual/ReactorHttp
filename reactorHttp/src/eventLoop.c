@@ -56,7 +56,7 @@ bool eventLoopRun(struct EventLoop* evLoop) {
 }
 
 bool eventActivate(struct EventLoop* evLoop, int fd, int event) {
-    if (evLoop == NULL || fd < 0) return false;
+    if (evLoop == NULL || fd < 0 || evLoop->channelmap->list[fd] == NULL) return false;
     // 取出channel
     struct Channel* channel = evLoop->channelmap->list[fd];
     assert(channel->fd == fd);

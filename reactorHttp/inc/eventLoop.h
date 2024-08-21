@@ -18,7 +18,7 @@ struct ChannelElement {
     struct Channel* channel;
     struct ChannelElement* next;
 };
-
+struct Dispatcher;
 struct EventLoop {
     bool isRunning;    // eventloop是否启动
     struct Dispatcher* dispatcher;  // select poll epoll 指向谁就使用谁

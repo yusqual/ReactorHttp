@@ -21,6 +21,6 @@ struct TcpServer* tcpServerInit(unsigned short port, int threadNum);
 // init listener
 struct Listener* listenerInit(unsigned short port);
 // run
-void tcpServerRun(struct TcpServer* sercer);
+void tcpServerRun(struct TcpServer* server);
 
 #endif // _TCPSERVER_H_

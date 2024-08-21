@@ -1,5 +1,6 @@
 #include "httpResponse.h"
 #include <strings.h>
+#include "log.h"
 
 const int res_header_size = 16;
 
@@ -39,11 +40,16 @@ void httpResponsePrepareMsg(struct HttpResponse* response, struct Buffer* sendBu
     // 响应头
     for (int i = 0; i < response->headerNum; ++i) {
         bzero(tmp, sizeof(tmp));
-        sprintf(tmp, "%s: %s", response->headers[i].key, response->headers[i].value);
+        sprintf(tmp, "%s: %s\r\n", response->headers[i].key, response->headers[i].value);
         bufferAppendString(sendBuf, tmp);
     }
     // 空行
     bufferAppendString(sendBuf, "\r\n");
+#ifndef MSG_SEND_AUTO
+    bufferSendData(sendBuf, socket);
+#endif  // MSG_SEND_AUTO
+
+    DEBUG("回复的数据: %s", response->fileName);
     // 回复的数据
     response->sendDataFunc(response->fileName, sendBuf, socket);
 }

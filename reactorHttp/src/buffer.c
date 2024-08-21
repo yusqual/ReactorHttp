@@ -1,5 +1,7 @@
 #include "buffer.h"
 #include <sys/uio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 struct Buffer* bufferInit(int capacity) {
     struct Buffer* buffer = (struct Buffer*) malloc(sizeof(struct Buffer));
@@ -15,16 +17,14 @@ void bufferDestroy(struct Buffer* buffer) {
     if (buffer) {
         if (buffer->data) {
             free(buffer->data);
-            buffer->data = NULL;
         }
         free(buffer);
-        buffer = NULL;
     }
 }
 
 bool bufferSizeDetection(struct Buffer* buffer, int size) {
     // 1. 内存够用, 不扩容
-    if (bufferWriteableSize(buffer) >= size) return;
+    if (bufferWriteableSize(buffer) >= size) return true;
     // 2. 内存需合并才够用, 不扩容 -> 剩余的可写 + 已读 >= capacity
     if (buffer->readPos + bufferWriteableSize(buffer) >= size) {
         int readable = bufferReadableSize(buffer);
@@ -33,7 +33,7 @@ bool bufferSizeDetection(struct Buffer* buffer, int size) {
         buffer->writePos = readable;
     } else {
         // 3. 内存不够用, 扩容
-        char* tmp = (char*) realloc(buffer->data, buffer->capacity + size);
+        void* tmp = realloc(buffer->data, buffer->capacity + size);
         if (tmp == NULL) {
             printf("bufferSizeDetection realloc failed.\n");
             return false;
@@ -95,6 +95,19 @@ int bufferSocketRead(struct Buffer* buffer, int fd) {
 char* bufferFindCRLF(struct Buffer* buffer) {
     // strstr -> 大字符串中匹配子字符串, 但是遇到\0就结束
     // menmen -> 大数据块中匹配子数据块, 需要指定数据块大小
-    char* ptr = memmem(buffer->data + buffer->readPos, bufferReadableSize(buffer), "\r\n", sizeof("\r\n"));
+    char* ptr = memmem(buffer->data + buffer->readPos, bufferReadableSize(buffer), "\r\n", 2);
     return ptr;
+}
+
+int bufferSendData(struct Buffer* buffer, int socket) {
+    int readable = bufferReadableSize(buffer);
+    if (readable > 0) {
+        int count = send(socket, buffer->data + buffer->readPos, readable, 0);
+        if (count > 0) {
+            buffer->readPos += count;
+            usleep(1);
+        }
+        return count;
+    }
+    return 0;
 }
