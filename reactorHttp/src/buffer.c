@@ -6,7 +6,8 @@
 struct Buffer* bufferInit(int capacity) {
     struct Buffer* buffer = (struct Buffer*) malloc(sizeof(struct Buffer));
     errif_exit(buffer == NULL, "bufferInit_1", true);
-    buffer->data = (char*) calloc(capacity, sizeof(char));
+    buffer->data = (char*) malloc(capacity);
+    bzero(buffer->data, capacity);
     errif_exit(buffer->data == NULL, "bufferInit_2", true);
     buffer->capacity = capacity;
     buffer->readPos = buffer->writePos = 0;

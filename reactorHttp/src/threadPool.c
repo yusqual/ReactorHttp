@@ -22,7 +22,7 @@ void threadPoolRun(struct ThreadPool* pool) {
         for (int i = 0; i < pool->threadNum; ++i) {
             // 初始化子线程
             workerThreadInit(&pool->workerThreads[i], i);
-            workerThreadRun(&pool->workerThreads[i]);
+            workerThreadRun(&pool->workerThreads[i], pool);
         }
     }
 }

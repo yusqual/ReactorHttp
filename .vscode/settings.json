@@ -20,6 +20,8 @@
         "string_view": "c",
         "tcpconnection.h": "c",
         "strings.h": "c",
-        "stat.h": "c"
+        "stat.h": "c",
+        "threadpool.h": "c",
+        "workerthread.h": "c"
     }
 }

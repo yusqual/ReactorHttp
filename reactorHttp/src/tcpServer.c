@@ -44,6 +44,7 @@ int acceptConnection(void* arg) {
     int cfd = accept(server->listener->lfd, NULL, NULL);
     // 从线程池中取出一个子线程的反应堆实例
     struct EventLoop* evLoop = takeWorkerEventLoop(server->threadPool);
+    DEBUG("mainThread accept, exec thread: %s", evLoop->threadName);
     // 将cfd放到TcpConnection中处理
     tcpConnectionInit(cfd, evLoop);
     return 0;

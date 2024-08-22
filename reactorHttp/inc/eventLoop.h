@@ -4,11 +4,12 @@
 #include "dispatcher.h"
 #include "channelMap.h"
 #include <pthread.h>
+#include "threadPool.h"
 
 extern struct Dispatcher epollDispatcher;   // extern关键字用于在其他文件中使用某文件中的全局变量
 extern struct Dispatcher pollDispatcher;
 extern struct Dispatcher selectDispatcher;
-
+struct ThreadPool;
 // 处理节点中channel的方式
 enum ElemType{ADD, DEL, MOD};
 
@@ -37,7 +38,7 @@ struct EventLoop {
 
 // 初始化
 struct EventLoop* eventLoopInit();  // 主线程
-struct EventLoop* eventLoopInitEx(const char* threadName);// 子线程
+struct EventLoop* eventLoopInitEx(const char* threadName, struct ThreadPool* pool);// 子线程
 // 启动反应堆模型
 bool eventLoopRun(struct EventLoop* evLoop);
 // 处理激活的文件描述符

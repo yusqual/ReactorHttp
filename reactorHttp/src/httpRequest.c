@@ -78,6 +78,7 @@ char* splitRequestLine(const char* start, const char* end, const char* sub, char
     }
     int length = space - start;  // 请求方式长度 Get Post...
     char* tmp = (char*) malloc(length + 1);
+    bzero(tmp, length + 1);
     errif_exit(tmp == NULL, "parseHttpRequestLine_2", true);
     strncpy(tmp, start, length);
     tmp[length] = '\0';
@@ -202,9 +203,11 @@ bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* respon
         return false;
     }
     decodeMsg(request->url, request->url);
-    char* path = (char*) malloc(strlen(request->url) + 10);
+    printf("request.url: %s, its length: %ld\n", request->url, strlen(request->url));
+    char* path = (char*) malloc(strlen(request->url) + 2);
     // 格式化访问的资源路径, 在最前面加上'.'来访问本地目录
     path[0] = '.';
+    path[strlen(request->url) + 1] = '\0';
     memcpy(path + 1, request->url, strlen(request->url));
     free(request->url);
     request->url = path;

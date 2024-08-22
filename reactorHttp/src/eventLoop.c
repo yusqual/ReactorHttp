@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include "log.h"
 
 // 写数据
 void taskWakeup(struct EventLoop* evLoop) {
@@ -15,30 +16,38 @@ int readLocalMsg(void* arg) {
     char buf[256];
     int res = read(evLoop->socketPair[1], buf, sizeof(buf));
     errif_exit(res == -1, "readLocalMsg", true);
+    DEBUG("%s socketPair[1] read...\n", evLoop->threadName);
     return res;
 }
 
 struct EventLoop* eventLoopInit() {
-    return eventLoopInitEx("MainThread");
+    return eventLoopInitEx(NULL, NULL);
 }
 
-struct EventLoop* eventLoopInitEx(const char* threadName) {
+struct EventLoop* eventLoopInitEx(const char* threadName, struct ThreadPool* pool) {
+
     struct EventLoop* evLoop = (struct EventLoop*) malloc(sizeof(struct EventLoop));
     errif_exit(evLoop == NULL, "eventLoopInitEx_1", true);
     evLoop->isRunning = true;
     evLoop->threadId = pthread_self();
     pthread_mutex_init(&evLoop->mutex, NULL);
-    strcpy(evLoop->threadName, threadName);
+    strcpy(evLoop->threadName, threadName == NULL ? "MainThread" : threadName);
     evLoop->dispatcher = &epollDispatcher;  // 使用epoll
     evLoop->dispatcherData = evLoop->dispatcher->init();
     evLoop->head = evLoop->tail = NULL;        // 链表
     evLoop->channelmap = channelMapInit(128);  // channelmap
-    int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, evLoop->socketPair);
-    errif_exit(ret == -1, "eventLoopInitEx_socketpair", true);
-    // 指定evLoop->socketPair[0]发送数据,[1]接收数据
-    // 添加[1]到dipatcher检测列表中, 设置读事件原因: epoll默认采用水平触发, 若不读取读缓冲区数据则会一直触发
-    struct Channel* channel = channelInit(evLoop->socketPair[1], ReadEvent, readLocalMsg, NULL, evLoop);
-    eventLoopAddTask(evLoop, channel, ADD);  // 添加channel到任务队列
+    if (threadName == NULL) {
+        int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, evLoop->socketPair);
+        errif_exit(ret == -1, "eventLoopInitEx_socketpair", true);
+        // 指定evLoop->socketPair[0]发送数据,[1]接收数据
+        // 添加[1]到dipatcher检测列表中, 设置读事件原因: epoll默认采用水平触发, 若不读取读缓冲区数据则会一直触发
+        // 主线程不用添加
+        struct Channel* channel = channelInit(evLoop->socketPair[1], ReadEvent, readLocalMsg, NULL, evLoop);
+        eventLoopAddTask(evLoop, channel, ADD);  // 添加channel到任务队列
+    } else {    // 子线程把主线程的socketPair[1]放到自己的evloop里面
+        struct Channel* channel = channelInit(pool->mainLoop->socketPair[1], ReadEvent, readLocalMsg, NULL, evLoop);
+        eventLoopAddTask(evLoop, channel, ADD);
+    }
     return evLoop;
 }
 
@@ -101,6 +110,7 @@ bool eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int typ
         // 1. 子线程在工作 2. 子线程被阻塞了:select, poll, epoll
         // 通过在dispatcher检测的fd中添加一个单独的fd,来控制dispatcher检测函数能够直接返回
         taskWakeup(evLoop);
+        DEBUG("发出socketPair[0].");
     }
     return true;
 }
@@ -138,7 +148,7 @@ bool eventLoopAdd(struct EventLoop* evLoop, struct Channel* channel) {
         channelmap->list[fd] = channel;
         return evLoop->dispatcher->add(channel, evLoop);
     }
-    return true;
+    return false;
 }
 
 bool eventLoopDel(struct EventLoop* evLoop, struct Channel* channel) {
