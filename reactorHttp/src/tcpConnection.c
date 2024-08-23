@@ -69,6 +69,7 @@ struct TcpConnection* tcpConnectionInit(int fd, struct EventLoop* evLoop) {
 
 void tcpConnectionDestroy(struct TcpConnection* conn) {
     if (conn) {
+    DEBUG("连接断开,释放资源: connName: %s, %d", conn->name, conn->channel->fd);
         if (conn->readBuf && bufferReadableSize(conn->readBuf) == 0 &&
             conn->writeBuf && bufferReadableSize(conn->writeBuf) == 0) {
             destroyChannel(conn->evLoop, conn->channel);
@@ -79,5 +80,4 @@ void tcpConnectionDestroy(struct TcpConnection* conn) {
             free(conn);
         }
     }
-    DEBUG("连接断开,释放资源: connName: %s", conn->name);
 }
