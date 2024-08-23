@@ -3,6 +3,7 @@
 struct ChannelMap* channelMapInit(int size) {
     struct ChannelMap* map = (struct ChannelMap*) malloc(sizeof(struct ChannelMap));
     errif_exit(map == NULL, "channelMapInit_1", true);
+    map->size = size;
     map->list = (struct Channel**) malloc(size * sizeof(struct Channel*));
     errif_exit(map->list == NULL, "channelMapInit_2", true);
     return map;

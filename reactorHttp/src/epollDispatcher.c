@@ -1,5 +1,6 @@
 #include "dispatcher.h"
 #include <sys/epoll.h>
+#include "log.h"
 
 static void* epollInit();
 static bool epollAdd(struct Channel* channel, struct EventLoop* eventLoop);
@@ -31,7 +32,7 @@ struct Dispatcher epollDispatcher = {
 void* epollInit() {
     struct EpollData* data = (struct EpollData*)malloc(sizeof(struct EpollData));
     errif_exit(data == NULL, "epollInit_1", true);
-    data->epfd = epoll_create(1);
+    data->epfd = epoll_create(10);
     errif_exit(data->epfd == -1, "epollInit_epoll_create", true);
     data->events = (struct epoll_event*)calloc(max_evs_size, sizeof(struct epoll_event));
     errif_exit(data->events == NULL, "epollInit_2", true);
@@ -64,7 +65,8 @@ bool epollDispatch(struct EventLoop* eventLoop, int timeout) {
         int fd = data->events[i].data.fd;
         if (events & EPOLLERR || events & EPOLLHUP) {
             // 对方断开了连接
-            // epollRemove();
+            epollRemove(eventLoop->channelmap->list[fd], eventLoop);
+            DEBUG("epollDispatch: fd %d 出现异常, 将其移除...", fd);
             continue;
         }
         if (events & EPOLLIN) { // 读事件

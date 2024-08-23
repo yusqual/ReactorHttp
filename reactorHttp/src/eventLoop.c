@@ -16,7 +16,6 @@ int readLocalMsg(void* arg) {
     char buf[256];
     int res = read(evLoop->socketPair[1], buf, sizeof(buf));
     errif_exit(res == -1, "readLocalMsg", true);
-    DEBUG("%s socketPair[1] read...\n", evLoop->threadName);
     return res;
 }
 
