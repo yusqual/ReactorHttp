@@ -3,6 +3,8 @@
 
 #include "workerThread.h"
 
+struct WorkerThread;
+
 // 定义线程池
 struct ThreadPool {
     // 主线程的反应堆模型

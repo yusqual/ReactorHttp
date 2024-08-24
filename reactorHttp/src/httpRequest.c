@@ -147,7 +147,7 @@ bool parseHttpRequestHeader(struct HttpRequest* request, struct Buffer* readBuf)
             strncpy(key, start, tmpLen);
             key[tmpLen] = '\0';
 
-            tmpLen = end - middle - 2;  // value长度
+            tmpLen = end - middle - 2;  // value长度 
             char* value = (char*) malloc(tmpLen + 1);
             errif_exit(value == NULL, "parseHttpRequestHeader_2", true);
             strncpy(value, middle + 2, tmpLen);

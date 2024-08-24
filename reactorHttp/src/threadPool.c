@@ -15,7 +15,7 @@ struct ThreadPool* threadPoolInit(struct EventLoop* mainLoop, int threadNum) {
 
 void threadPoolRun(struct ThreadPool* pool) {
     assert(pool && !pool->isStart);
-    // errif_exit(pool == NULL && !pool->isStart, "threadPoolRun_1", true);
+    // errif_exit(pool == NULL && pool->isStart, "threadPoolRun_1", true);
     errif_exit(pool->mainLoop->threadId != pthread_self(), "threadPoolRun_2", true);    // 操作的线程必须是主线程
     pool->isStart = true;
     if (pool->threadNum) {

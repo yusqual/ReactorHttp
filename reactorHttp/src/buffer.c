@@ -76,8 +76,9 @@ int bufferSocketRead(struct Buffer* buffer, int fd) {
     int writeable = bufferWriteableSize(buffer);
     vec[0].iov_base = buffer->data + buffer->writePos;
     vec[0].iov_len = writeable;
-    vec[1].iov_base = (char*)calloc(40960, 1);
+    vec[1].iov_base = (char*)malloc(40960);
     errif_exit(vec[1].iov_base == NULL, "bufferSocketRead", true);
+    bzero(vec[1].iov_base, sizeof(vec[1].iov_base));
     vec[1].iov_len = 40960;
     // 接收数据
     int result = readv(fd, vec, 2);

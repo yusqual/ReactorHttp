@@ -21,7 +21,8 @@ struct Listener* listenerInit(unsigned short port) {
     int lfd = socket(AF_INET, SOCK_STREAM, 0);  // TCP
     errif_exit(lfd == -1, "listenerInit_socket", true);
     // 2. 设置端口复用
-    int ret = setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &lfd, sizeof(lfd));
+    int opt = 1;
+    int ret = setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     errif_exit(ret == -1, "listenerInit_setsockopt", true);
     // 3. 绑定
     struct sockaddr_in addr;
