@@ -147,7 +147,7 @@ bool parseHttpRequestHeader(struct HttpRequest* request, struct Buffer* readBuf)
             strncpy(key, start, tmpLen);
             key[tmpLen] = '\0';
 
-            tmpLen = end - middle - 2;  // value长度 
+            tmpLen = end - middle - 2;  // value长度
             char* value = (char*) malloc(tmpLen + 1);
             errif_exit(value == NULL, "parseHttpRequestHeader_2", true);
             strncpy(value, middle + 2, tmpLen);
@@ -188,10 +188,14 @@ bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf,
     }
     if (result && request->curState == ParseReqDone) {
         // 1. 根据解析出的数据,对客户端的请求做出处理
-        processHttpRequest(request, response);
-        DEBUG("解析数据完成.");
-        // 2. 组织响应数据并发送给客户端
-        httpResponsePrepareMsg(response, sendBuf, socket);
+        int res = processHttpRequest(request, response);
+        if (res == false) {
+            result = false;
+        } else {
+            DEBUG("解析数据完成.");
+            // 2. 组织响应数据并发送给客户端
+            httpResponsePrepareMsg(response, sendBuf, socket);
+        }
     }
     request->curState = ParseReqLine;  // 状态还原, 保证能处理后面的http请求
     return result;
@@ -336,7 +340,7 @@ void sendFile(const char* file, struct Buffer* sendBuf, int cfd) {
     // 1. 打开文件
     int fd = open(file, O_RDONLY);
     assert(fd > 0);
-#if 1
+#if 0
     char buf[1024];
     while (true) {
         bzero(buf, sizeof(buf));
@@ -346,7 +350,7 @@ void sendFile(const char* file, struct Buffer* sendBuf, int cfd) {
             bufferAppendData(sendBuf, buf, len);
 #ifndef MSG_SEND_AUTO
             bufferSendData(sendBuf, cfd);
-#endif                  // MSG_SEND_AUTO
+#endif  // MSG_SEND_AUTO
         } else if (len < 0) {
             close(fd);
             perror("sendFile read");

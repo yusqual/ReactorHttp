@@ -11,6 +11,7 @@ struct HttpResponse* httpResponseInit() {
     response->headers = (struct ResponseHeader*) malloc(res_header_size * sizeof(struct ResponseHeader));
     errif_exit(response->headers == NULL, "httpResponseInit_2", true);
     response->statusCode = Unknown;
+    bzero(response->headers, sizeof(response->headers));
     bzero(response->statusMsg, sizeof(response->statusMsg));
     bzero(response->fileName, sizeof(response->fileName));
     // 函数指针
