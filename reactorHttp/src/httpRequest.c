@@ -250,7 +250,7 @@ bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* respon
         // sendHeadMsg(cfd, 200, "OK", getFileType(path), st.st_size);
         // sendFile(path, cfd);
         // 响应头
-        char tmp[12] = {0};
+        char tmp[32] = {0};
         sprintf(tmp, "%ld", st.st_size);
         httpResponseAddHeader(response, "Content-type", getFileType(request->url));
         httpResponseAddHeader(response, "Content-length", tmp);
