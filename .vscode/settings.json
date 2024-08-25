@@ -22,6 +22,8 @@
         "strings.h": "c",
         "stat.h": "c",
         "threadpool.h": "c",
-        "workerthread.h": "c"
+        "workerthread.h": "c",
+        "httprequest.h": "c",
+        "httpresponse.h": "c"
     }
 }
