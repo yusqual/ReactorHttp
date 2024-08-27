@@ -1,41 +1,28 @@
 #include "workerThread.h"
 
-struct threadInfo {
-    struct WorkerThread* thread;
-    struct ThreadPool* pool;
-};
-
-bool workerThreadInit(struct WorkerThread* thread, int index) {
-    thread->evLoop = NULL;
-    thread->threadId = 0;
-    sprintf(thread->name, "SubThread-%d", index);
-    pthread_mutex_init(&thread->mutex, NULL);
-    pthread_cond_init(&thread->cond, NULL);
-    return true;
+WorkerThread::WorkerThread(int index): m_evLoop(nullptr), m_thread(nullptr), m_threadId(std::thread::id()), m_name("SubThread-" + std::to_string(index)) {
 }
 
-void* subThreadRunning(void* arg) {
-    struct threadInfo* tInfo = (struct threadInfo*)arg;
-    struct WorkerThread* thread = tInfo->thread;
-    pthread_mutex_lock(&thread->mutex);
-    thread->evLoop = eventLoopInitEx(thread->name, tInfo->pool);
-    pthread_mutex_unlock(&thread->mutex);
-    pthread_cond_signal(&thread->cond);
-    eventLoopRun(thread->evLoop);
-    return NULL;
-}
-
-void workerThreadRun(struct WorkerThread* thread, struct ThreadPool* pool) {
-    struct threadInfo* tInfo = (struct threadInfo*)malloc(sizeof(struct threadInfo));
-    tInfo->thread = thread;
-    tInfo->pool = pool;
-    // 创建子线程
-    int res = pthread_create(&thread->threadId, NULL, subThreadRunning, tInfo);
-    errif_exit(res != 0, "workerThreadRun");
-    // 阻塞主线程, 保证subThreadRunning执行完毕,evloop被初始化完毕
-    pthread_mutex_lock(&thread->mutex);
-    while (thread->evLoop == NULL) {
-        pthread_cond_wait(&thread->cond, &thread->mutex);
+WorkerThread::~WorkerThread() {
+    if (m_thread != nullptr) {
+        delete m_thread;
     }
-    pthread_mutex_unlock(&thread->mutex);
+}
+
+void WorkerThread::run(ThreadPool* pool) {
+    // 创建子线程
+    m_thread = new std::thread(&WorkerThread::subThreadRunning, this, pool);
+    // 阻塞主线程, 保证subThreadRunning执行完毕,evloop被初始化完毕
+    std::unique_lock<std::mutex> locker(m_mutex);
+    while (m_evLoop == nullptr) {
+        m_cond.wait(locker);
+    }
+}
+
+void WorkerThread::subThreadRunning(ThreadPool* pool) {
+    m_mutex.lock();
+    m_evLoop = new EventLoop(m_name, pool);
+    m_mutex.unlock();
+    m_cond.notify_one();
+    m_evLoop->run();
 }

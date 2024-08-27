@@ -1,40 +1,39 @@
 #include "threadPool.h"
 #include <assert.h>
 
-struct ThreadPool* threadPoolInit(struct EventLoop* mainLoop, int threadNum) {
-    struct ThreadPool* pool = (struct ThreadPool*)malloc(sizeof(struct ThreadPool));
-    errif_exit(pool == NULL, "threadPoolInit_1");
-    pool->index = 0;
-    pool->isStart = false;
-    pool->mainLoop = mainLoop;
-    pool->threadNum = threadNum;
-    pool->workerThreads = (struct WorkerThread*)malloc(threadNum * sizeof(struct WorkerThread));
-    errif_exit(pool->workerThreads == NULL, "threadPoolInit_2");
-    return pool;
+ThreadPool::ThreadPool(EventLoop* mainLoop, int threadSize): m_index(0), m_isStart(false), m_mainLoop(mainLoop), m_threadSize(threadSize) {
 }
 
-void threadPoolRun(struct ThreadPool* pool) {
-    assert(pool && !pool->isStart);
-    // errif_exit(pool == NULL && pool->isStart, "threadPoolRun_1");
-    errif_exit(pool->mainLoop->threadId != pthread_self(), "threadPoolRun_2");    // 操作的线程必须是主线程
-    pool->isStart = true;
-    if (pool->threadNum) {
-        for (int i = 0; i < pool->threadNum; ++i) {
+ThreadPool::~ThreadPool() {
+    for (auto item : m_workerThreads) {
+        delete item;
+    }
+}
+
+void ThreadPool::run() {
+    assert(!m_isStart);
+    errif_exit(m_mainLoop->getThreadId() != std::this_thread::get_id(), "threadPoolRun");  // 操作的线程必须是主线程
+    m_isStart = true;
+    if (m_threadSize > 0) {
+        for (int i = 0; i < m_threadSize; ++i) {
             // 初始化子线程
-            workerThreadInit(&pool->workerThreads[i], i);
-            workerThreadRun(&pool->workerThreads[i], pool);
+            WorkerThread* subThread = new WorkerThread(i);
+            subThread->run(this);
+            m_workerThreads.push_back(subThread);
         }
     }
 }
 
-struct EventLoop* takeWorkerEventLoop(struct ThreadPool* pool) {
-    errif_exit(!pool->isStart, "takeWorkerEventLoop_1");
-    errif_exit(pool->mainLoop->threadId != pthread_self(), "takeWorkerEventLoop_2");    // 操作的线程必须是主线程
+EventLoop* ThreadPool::takeWorkerEventLoop() {
+    assert(m_isStart);
+    errif_exit(m_mainLoop->getThreadId() != std::this_thread::get_id(), "takeWorkerEventLoop");  // 操作的线程必须是主线程
     // 从线程池中找一个子线程,然后取出里面的反应堆实例
-    struct EventLoop* evLoop = pool->mainLoop;
-    if (pool->threadNum > 0) {
-        evLoop = pool->workerThreads[pool->index].evLoop;
-        pool->index = (pool->index + 1) % pool->threadNum;
+    EventLoop* evLoop = m_mainLoop;
+    if (m_threadSize > 0) {
+        evLoop = m_workerThreads[m_index]->getEventLoop();
+        m_index = (m_index + 1) % m_threadSize;
     }
     return evLoop;
 }
+
+

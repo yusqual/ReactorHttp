@@ -3,21 +3,30 @@
 
 #include "eventLoop.h"
 #include "threadPool.h"
+#include <condition_variable>
 struct ThreadPool;
 
 // 定义子线程对应的结构体
-struct WorkerThread {
-    pthread_t threadId;
-    char name[24];
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    struct EventLoop* evLoop;
+class WorkerThread {
+public:
+    WorkerThread(int index);
+    ~WorkerThread();
+
+    // 启动线程
+    void run(struct ThreadPool* pool);
+
+    inline EventLoop* getEventLoop() { return m_evLoop; }
+
+private:
+    void subThreadRunning(ThreadPool* pool);
+
+private:
+    std::thread* m_thread;
+    std::thread::id m_threadId;
+    std::string m_name;
+    std::mutex m_mutex;
+    std::condition_variable m_cond;
+    EventLoop* m_evLoop;
 };
 
-
-// 初始化, index 为在线程池中的序号
-bool workerThreadInit(struct WorkerThread* thread, int index);
-// 启动线程
-void workerThreadRun(struct WorkerThread* thread, struct ThreadPool* pool);
-
-#endif // _WORKERTHREAD_H_
+#endif  // _WORKERTHREAD_H_
