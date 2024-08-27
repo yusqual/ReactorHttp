@@ -12,14 +12,13 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 # 查找源文件  
 set(SOURCES  
     src/buffer.cpp
-    src/channel_map.cpp
     src/channel.cpp
     src/epollDispatcher.cpp
     src/eventLoop.cpp
     src/httpRequest.cpp
     src/httpResponse.cpp
     src/main.cpp
-    src/poolDispatcher.cpp
+    src/pollDispatcher.cpp
     src/selectDispatcher.cpp
     src/tcpConnection.cpp
     src/tcpServer.cpp
