@@ -2,57 +2,64 @@
 #define _EVENTLOOP_H_
 
 #include "dispatcher.h"
-#include "channelMap.h"
-#include <pthread.h>
 #include "threadPool.h"
+#include "channel.h"
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <map>
 
-extern struct Dispatcher epollDispatcher;   // extern关键字用于在其他文件中使用某文件中的全局变量
-extern struct Dispatcher pollDispatcher;
-extern struct Dispatcher selectDispatcher;
-struct ThreadPool;
 // 处理节点中channel的方式
-enum ElemType{ADD, DEL, MOD};
+enum class ElemType : char { ADD,
+                             DEL,
+                             MOD };
 
 // 定义任务队列的节点
 struct ChannelElement {
-    int type;   // 如何处理该节点中的channel
-    struct Channel* channel;
-    struct ChannelElement* next;
+    ElemType type;  // 如何处理该节点中的channel
+    Channel* channel;
 };
-struct Dispatcher;
-struct EventLoop {
-    bool isRunning;    // eventloop是否启动
-    struct Dispatcher* dispatcher;  // select poll epoll 指向谁就使用谁
-    void* dispatcherData;   // 对应的数据块
+class Dispatcher;
+class EventLoop {
+public:
+    EventLoop();
+    EventLoop(const std::string threadName, ThreadPool* pool);
+    ~EventLoop();
+    // 启动反应堆模型
+    bool run();
+    // 处理激活的文件描述符
+    bool eventActive(int fd, int event);
+    // 添加任务到任务队列
+    bool addTask(struct Channel* channel, ElemType type);
+    // 处理任务队列中的任务
+    bool processTaskQ();
+    // 处理dispatcher中的节点
+    bool add(Channel* channel);
+    bool del(Channel* channel);
+    bool mod(Channel* channel);
+    // 释放channel
+    bool destroyChannel(struct Channel* channel);
+    int readLocalMsg();
+    // 获取线程id
+    inline std::thread::id getThreadId() { return m_threadId; }
+    // 获取socketPair[1]
+    inline int getSocketPair() { return m_socketPair[1]; }
+
+private:
+    void taskWakeup();
+
+private:
+    bool m_isRunning;          // eventloop是否启动
+    Dispatcher* m_dispatcher;  // select poll epoll 指向谁就使用谁, 指向子类实例.
     // 任务队列
-    struct ChannelElement* head;
-    struct ChannelElement* tail;
-    // channelMap
-    struct ChannelMap* channelmap;
+    std::queue<ChannelElement*> m_taskQ;
+    // map
+    std::map<int, Channel*> m_channelMap;
     // 线程id, name, mutex
-    pthread_t threadId;
-    char threadName[32];
-    pthread_mutex_t mutex;  // 保护任务队列
-    int socketPair[2];  // 存储本地通信的fd,通过socketpair初始化,用于将dispatcher从检测函数返回
+    std::thread::id m_threadId;
+    std::string m_threadName;
+    std::mutex m_mutex;   // 保护任务队列
+    int m_socketPair[2];  // 存储本地通信的fd,通过socketpair初始化,用于将dispatcher从检测函数返回
 };
 
-// 初始化
-struct EventLoop* eventLoopInit();  // 主线程
-struct EventLoop* eventLoopInitEx(const char* threadName, struct ThreadPool* pool);// 子线程
-// 启动反应堆模型
-bool eventLoopRun(struct EventLoop* evLoop);
-// 处理激活的文件描述符
-bool eventActivate(struct EventLoop* evLoop, int fd, int event);
-// 添加任务到任务队列
-bool eventLoopAddTask(struct EventLoop* evLoop, struct Channel* channel, int type);
-// 处理任务队列中的任务
-bool eventLoopProcessTask(struct EventLoop* evLoop);
-// 处理dispatcher中的节点
-bool eventLoopAdd(struct EventLoop* evLoop, struct Channel* channel);
-bool eventLoopDel(struct EventLoop* evLoop, struct Channel* channel);
-bool eventLoopMod(struct EventLoop* evLoop, struct Channel* channel);
-// 释放channel
-bool destroyChannel(struct EventLoop* evLoop, struct Channel* channel);
-
-
-#endif // _EVENTLOOP_H_
+#endif  // _EVENTLOOP_H_
