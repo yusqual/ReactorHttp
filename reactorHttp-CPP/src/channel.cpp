@@ -1,23 +1,13 @@
 #include "channel.h"
 
-struct Channel* channelInit(int fd, int events, handleFunc readFunc, handleFunc writeFunc, void* arg) {
-    struct Channel* channel = (struct Channel*) malloc(sizeof(struct Channel));
-    errif_exit(channel == NULL, "channel malloc");
-    channel->fd = fd;
-    channel->events = events;
-    channel->readCallback = readFunc;
-    channel->writeCallback = writeFunc;
-    channel->arg = arg;
-    return channel;
+Channel::Channel(int fd, FDEvent events, handleFunc readFunc, handleFunc writeFunc, void* arg)
+    : m_fd(fd), m_events(static_cast<int>(events)), m_arg(arg), readCallback(readFunc), writeCallback(writeFunc) {}
+
+void Channel::modifyWriteEvent(bool flag) {
+    if (flag) m_events |= static_cast<int>(FDEvent::WriteEvent);
+    else m_events = m_events & ~(int)FDEvent::WriteEvent;
 }
 
-void modifyWriteEvent(struct Channel* channel, bool flag) {
-    if (flag)
-        channel->events |= WriteEvent;
-    else
-        channel->events = channel->events & ~WriteEvent;    // ~WriteEvent: 1...111011
-}
-
-bool isWriteEventEnable(struct Channel* channel) {
-    return channel->events & WriteEvent;
+bool Channel::isWriteEventEnable() {
+    return m_events & (int)FDEvent::WriteEvent;
 }
