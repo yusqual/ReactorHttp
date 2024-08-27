@@ -1,98 +1,62 @@
 #include "dispatcher.h"
 #include <sys/select.h>
+#include "selectDispatcher.h"
 
-static void* selectInit();
-static bool selectAdd(struct Channel* channel, struct EventLoop* eventLoop);
-static bool selectRemove(struct Channel* channel, struct EventLoop* eventLoop);
-static bool selectModify(struct Channel* channel, struct EventLoop* eventLoop);
-static bool selectDispatch(struct EventLoop* eventLoop, int timeout);
-static bool selectClear(struct EventLoop* eventLoop);
-
-static void addFdSet(struct Channel* channel, struct EventLoop* eventLoop);
-static void clrFdSet(struct Channel* channel, struct EventLoop* eventLoop);
-
-const int max_fds_size = 1024;
-
-// select需要的数据块
-struct SelectData {
-    fd_set readfds;
-    fd_set writefds;
-};
-// select对应的dispatcher
-struct Dispatcher selectDispatcher = {
-    selectInit,
-    selectAdd,
-    selectRemove,
-    selectModify,
-    selectDispatch,
-    selectClear
-};
-
-
-void* selectInit() {
-    struct SelectData* data = (struct SelectData*)malloc(sizeof(struct SelectData));
-    errif_exit(data == NULL, "selectInit");
-    FD_ZERO(&data->readfds);
-    FD_ZERO(&data->writefds);
-    return data;
+SelectDispatcher::SelectDispatcher(EventLoop* evLoop): Dispatcher(evLoop) {
+    FD_ZERO(&m_readfds);
+    FD_ZERO(&m_writefds);
+    m_name = "Select";
 }
 
-bool selectAdd(struct Channel* channel, struct EventLoop* eventLoop) {
-    if (channel->fd >= max_fds_size) return false;
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
-    addFdSet(channel, eventLoop);
+SelectDispatcher::~SelectDispatcher() {
+}
+
+bool SelectDispatcher::add() {
+    if (m_channel->getSocket() >= m_maxSize) return false;
+    addFdSet();
     return true;
 }
 
-bool selectRemove(struct Channel* channel, struct EventLoop* eventLoop) {
-    if (channel->fd >= max_fds_size) return false;
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
-    clrFdSet(channel, eventLoop);
+bool SelectDispatcher::remove() {
+    if (m_channel->getSocket() >= m_maxSize) return false;
+    clrFdSet();
+    // 通过channel释放对应的TcpConnection资源
+    // m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
     return true;
 }
 
-bool selectModify(struct Channel* channel, struct EventLoop* eventLoop) {
-    if (channel->fd >= max_fds_size) return false;
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
-    addFdSet(channel, eventLoop);
-    clrFdSet(channel, eventLoop);
+bool SelectDispatcher::modify() {
+    if (m_channel->getSocket() >= m_maxSize) return false;
+    addFdSet();
+    clrFdSet();
     return true;
 }
 
-bool selectDispatch(struct EventLoop* eventLoop, int timeout) {
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
+bool SelectDispatcher::dispatch(int timeout) {
     struct timeval val;
     val.tv_sec = timeout;
     val.tv_usec = 0;
-    fd_set rdtmp = data->readfds;
-    fd_set wrtmp = data->writefds;
-    int count = select(max_fds_size, &rdtmp, &wrtmp, NULL, &val);
+    fd_set rdtmp = m_readfds;
+    fd_set wrtmp = m_writefds;
+    int count = select(m_maxSize, &rdtmp, &wrtmp, NULL, &val);
     errif_exit(count == -1, "select");
-    for (int i = 0; i < max_fds_size; ++i) {
+    for (int i = 0; i < m_maxSize; ++i) {
         if (FD_ISSET(i, &rdtmp)) {
-            eventActivate(eventLoop, i, ReadEvent);
+            // eventActivate(eventLoop, i, ReadEvent);
         }
         if (FD_ISSET(i, &wrtmp)) {
-            eventActivate(eventLoop, i, WriteEvent);
+            // eventActivate(eventLoop, i, WriteEvent);
         }
     }
     return true;
 }
 
-bool selectClear(struct EventLoop* eventLoop) {
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
-    free(data);
-    return true;
+void SelectDispatcher::addFdSet() {
+    if (m_channel->getEvent() & (int) FDEvent::ReadEvent) FD_SET(m_channel->getSocket(), &m_readfds);
+    if (m_channel->getEvent() & (int) FDEvent::WriteEvent) FD_SET(m_channel->getSocket(), &m_writefds);
 }
 
-void addFdSet(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
-    if (channel->events & ReadEvent) FD_SET(channel->fd, &data->readfds);
-    if (channel->events & WriteEvent) FD_SET(channel->fd, &data->writefds);
-}
-
-void clrFdSet(struct Channel* channel, struct EventLoop* eventLoop) {
-    struct SelectData* data = (struct SelectData*)eventLoop->dispatcherData;
-    if (!(channel->events & ReadEvent)) FD_CLR(channel->fd, &data->readfds);
-    if (!(channel->events & WriteEvent)) FD_CLR(channel->fd, &data->writefds);
+void SelectDispatcher::clrFdSet() {
+    if (!(m_channel->getEvent() & (int) FDEvent::ReadEvent)) FD_CLR(m_channel->getSocket(), &m_readfds);
+    if (!(m_channel->getEvent() & (int) FDEvent::WriteEvent)) FD_CLR(m_channel->getSocket(), &m_writefds);
 }

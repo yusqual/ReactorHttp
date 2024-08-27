@@ -3,20 +3,28 @@
 
 #include "channel.h"
 #include "eventLoop.h"
-struct EventLoop;
-struct Dispatcher {
+class EventLoop;
+class Dispatcher {
+public:
     // 初始化 -- 初始化epoll poll 或 select 所需的数据块(dispatcherData)
-    void* (*init)();
-    // 添加
-    bool (*add)(struct Channel* channel, struct EventLoop* eventLoop);
-    // 删除
-    bool (*remove)(struct Channel* channel, struct EventLoop* eventLoop);
-    // 修改
-    bool (*modify)(struct Channel* channel, struct EventLoop* eventLoop);
-    // 事件检测
-    bool (*dispatch)(struct EventLoop* eventLoop, int timeout);
+    Dispatcher(EventLoop* evLoop);
     // 清除数据(关闭fd或者释放内存)
-    bool (*clear)(struct EventLoop* eventLoop);
+    virtual ~Dispatcher();
+    // 添加
+    virtual bool add();
+    // 删除
+    virtual bool remove();
+    // 修改
+    virtual bool modify();
+    // 事件检测, timeout超时时长(ms)
+    virtual bool dispatch(int timeout = 2000);
+    // 更新channel
+    inline void setChannel(Channel* channel) { m_channel = channel; }
+
+protected:
+    std::string m_name = std::string();
+    Channel* m_channel;
+    EventLoop* m_evLoop;
 };
 
 #endif  // _DISPATCHER_H_
