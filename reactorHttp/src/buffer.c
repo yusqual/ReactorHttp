@@ -56,7 +56,7 @@ int bufferReadableSize(struct Buffer* buffer) {
 }
 
 bool bufferAppendData(struct Buffer* buffer, const char* data, int size) {
-    if (buffer == NULL || data == NULL || data <= 0) return false;
+    if (buffer == NULL || data == NULL || size <= 0) return false;
     if (bufferSizeDetection(buffer, size) == false) return false;
     // 数据拷贝
     memcpy(buffer->data+buffer->writePos, data, size);
