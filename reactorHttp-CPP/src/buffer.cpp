@@ -3,80 +3,64 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-struct Buffer* bufferInit(int capacity) {
-    struct Buffer* buffer = (struct Buffer*) malloc(sizeof(struct Buffer));
-    errif_exit(buffer == NULL, "bufferInit_1");
-    buffer->data = (char*) malloc(capacity);
-    bzero(buffer->data, capacity);
-    errif_exit(buffer->data == NULL, "bufferInit_2");
-    buffer->capacity = capacity;
-    buffer->readPos = buffer->writePos = 0;
-    return buffer;
+Buffer::Buffer(int size): m_capacity(size), m_readPos(0), m_writePos(0) {
+    m_data = (char*) malloc(size);
+    bzero(m_data, size);
 }
 
-void bufferDestroy(struct Buffer* buffer) {
-    if (buffer) {
-        if (buffer->data) {
-            free(buffer->data);
-        }
-        free(buffer);
+Buffer::~Buffer() {
+    if (m_data) {
+        free(m_data);
     }
 }
 
-bool bufferSizeDetection(struct Buffer* buffer, int size) {
+bool Buffer::sizeDetection(int size) {
     // 1. 内存够用, 不扩容
-    if (bufferWriteableSize(buffer) >= size) return true;
+    if (writeableSize() >= size) return true;
     // 2. 内存需合并才够用, 不扩容 -> 剩余的可写 + 已读 >= capacity
-    if (buffer->readPos + bufferWriteableSize(buffer) >= size) {
-        int readable = bufferReadableSize(buffer);
-        memcpy(buffer->data, buffer->data + buffer->readPos, readable);
-        buffer->readPos = 0;
-        buffer->writePos = readable;
+    if (m_readPos + writeableSize() >= size) {
+        int readable = readableSize();
+        memcpy(m_data, m_data + m_readPos, readable);
+        m_readPos = 0;
+        m_writePos = readable;
     } else {
         // 3. 内存不够用, 扩容
-        void* tmp = realloc(buffer->data, buffer->capacity + size);
+        void* tmp = realloc(m_data, m_capacity + size);
         if (tmp == NULL) {
             printf("bufferSizeDetection realloc failed.\n");
             return false;
         }
-        memset(tmp + buffer->capacity, 0, size);
+        memset(tmp + m_capacity, 0, size);
         // 更新数据
-        buffer->data = tmp;
-        buffer->capacity += size;
+        m_data = (char*)tmp;
+        m_capacity += size;
     }
     return true;
 }
 
-int bufferWriteableSize(struct Buffer* buffer) {
-    return buffer->capacity - buffer->writePos;
+
+bool Buffer::appendString(const char* data) {
+    int size = strlen(data);
+    return appendString(data, size);
 }
 
-int bufferReadableSize(struct Buffer* buffer) {
-    return buffer->writePos - buffer->readPos;
-}
-
-bool bufferAppendData(struct Buffer* buffer, const char* data, int size) {
-    if (buffer == NULL || data == NULL || data <= 0) return false;
-    if (bufferSizeDetection(buffer, size) == false) return false;
+bool Buffer::appendString(const char* data, int size) {
+    if (data == nullptr || size <= 0) return false;
+    if (sizeDetection(size) == false) return false;
     // 数据拷贝
-    memcpy(buffer->data+buffer->writePos, data, size);
-    buffer->writePos += size;
+    memcpy(m_data + m_writePos, data, size);
+    m_writePos += size;
     return true;
 }
 
-bool bufferAppendString(struct Buffer* buffer, const char* data) {
-    int size = strlen(data);
-    return bufferAppendData(buffer, data, size);
-}
-
-int bufferSocketRead(struct Buffer* buffer, int fd) {
+int Buffer::socketRead(int fd) {
     // read/recv/readv
     struct iovec vec[2];
     // 初始化数组元素
-    int writeable = bufferWriteableSize(buffer);
-    vec[0].iov_base = buffer->data + buffer->writePos;
+    int writeable = writeableSize();
+    vec[0].iov_base = m_data + m_writePos;
     vec[0].iov_len = writeable;
-    vec[1].iov_base = (char*)malloc(40960);
+    vec[1].iov_base = (char*) malloc(40960);
     errif_exit(vec[1].iov_base == NULL, "bufferSocketRead");
     bzero(vec[1].iov_base, sizeof(vec[1].iov_base));
     vec[1].iov_len = 40960;
@@ -85,28 +69,28 @@ int bufferSocketRead(struct Buffer* buffer, int fd) {
     if (result == -1) return -1;
     if (result <= writeable) {
         // 未使用第二块内存
-        buffer->writePos += result;
+        m_writePos += result;
     } else {
-        buffer->writePos = buffer->capacity;
-        bufferAppendData(buffer, vec[1].iov_base, result - writeable);
+        m_writePos = m_capacity;
+        appendString((char*)vec[1].iov_base, result - writeable);
     }
     free(vec[1].iov_base);
     return result;
 }
 
-char* bufferFindCRLF(struct Buffer* buffer) {
+char* Buffer::findCRLF() {
     // strstr -> 大字符串中匹配子字符串, 但是遇到\0就结束
     // menmen -> 大数据块中匹配子数据块, 需要指定数据块大小
-    char* ptr = memmem(buffer->data + buffer->readPos, bufferReadableSize(buffer), "\r\n", 2);
+    char* ptr = (char*)memmem(m_data + m_readPos, readableSize(), "\r\n", 2);
     return ptr;
 }
 
-int bufferSendData(struct Buffer* buffer, int socket) {
-    int readable = bufferReadableSize(buffer);
+int Buffer::sendData(int socket) {
+    int readable = readableSize();
     if (readable > 0) {
-        int count = send(socket, buffer->data + buffer->readPos, readable, 0);
+        int count = send(socket, m_data + m_readPos, readable, 0);
         if (count > 0) {
-            buffer->readPos += count;
+            m_readPos += count;
             usleep(1);
         }
         return count;
