@@ -4,23 +4,20 @@
 #include "eventLoop.h"
 #include "threadPool.h"
 
-struct Listener {
-    int lfd;
-    unsigned short port;
+class TcpServer {
+public:
+    TcpServer(unsigned short port, int threadNum);
+    ~TcpServer();
+    void setListen();
+    void run();
+    static int acceptConnection(void* arg);
+
+private:
+    EventLoop* m_mainLoop;
+    ThreadPool* m_threadPool;
+    int m_threadNum;
+    int m_lfd;
+    unsigned short m_port;
 };
 
-struct TcpServer {
-    struct EventLoop* mainLoop;
-    struct ThreadPool* threadPool;
-    struct Listener* listener;
-    int threadNum;
-};
-
-// init tcpserver
-struct TcpServer* tcpServerInit(unsigned short port, int threadNum);
-// init listener
-struct Listener* listenerInit(unsigned short port);
-// run
-void tcpServerRun(struct TcpServer* server);
-
-#endif // _TCPSERVER_H_
+#endif  // _TCPSERVER_H_
