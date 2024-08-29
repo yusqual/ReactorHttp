@@ -9,258 +9,254 @@
 #include <ctype.h>
 #include "log.h"
 
-const int HeaderSize = 127;
-
-struct HttpRequest* httpRequestInit() {
-    struct HttpRequest* request = (struct HttpRequest*) malloc(sizeof(struct HttpRequest));
-    errif_exit(request == NULL, "httpRequestInit");
-    request->reqHeaders = NULL;
-    httpRequestReset(request);
-    request->reqHeaders = (struct RequestHeader*) malloc(sizeof(struct RequestHeader) * HeaderSize);
-    return request;
+HttpRequest::HttpRequest() {
+    reset();
 }
 
-void httpRequestReset(struct HttpRequest* request) {
-    request->curState = ParseReqLine;
-    request->method = NULL;
-    request->url = NULL;
-    request->version = NULL;
-    request->reqHeadersNum = 0;
+HttpRequest::~HttpRequest() {
 }
 
-void httpRequestResetEx(struct HttpRequest* req) {
-    free(req->url);
-    free(req->method);
-    free(req->version);
-    if (req->reqHeaders != NULL) {
-        for (int i = 0; i < req->reqHeadersNum; ++i) {
-            free(req->reqHeaders[i].key);
-            free(req->reqHeaders[i].value);
-        }
-        free(req->reqHeaders);
-    }
-    httpRequestReset(req);
+void HttpRequest::reset() {
+    m_curState = ProcessStatus::ParseReqLine;
+    m_method = m_url = m_version = std::string();
+    m_reqHeaders.clear();
 }
 
-void httpRequestDestroy(struct HttpRequest* request) {
-    if (request != NULL) {
-        httpRequestResetEx(request);
-        free(request);
-    }
+void HttpRequest::addHeader(const std::string key, const std::string value) {
+    if (key.empty() || value.empty()) return;
+    m_reqHeaders.insert(std::make_pair(key, value));
 }
 
-enum HttpRequestStat httpRequestState(struct HttpRequest* request) {
-    return request->curState;
+std::string HttpRequest::getHeader(const std::string key) {
+    auto item = m_reqHeaders.find(key);
+    if (item != m_reqHeaders.end()) return item->second;
+    return std::string();
 }
 
-void httpRequestAddHeader(struct HttpRequest* request, const char* key, const char* value) {
-    request->reqHeaders[request->reqHeadersNum].key = (char*) key;
-    request->reqHeaders[request->reqHeadersNum].value = (char*) value;
-    ++request->reqHeadersNum;
-}
-
-char* httpRequestGetHeader(struct HttpRequest* request, const char* key) {
-    if (request) {
-        for (int i = 0; i < request->reqHeadersNum; ++i) {
-            if (strncasecmp(request->reqHeaders[i].key, key, strlen(key)) == 0) {  // 不区分大小写比较strlen(key)个字符是否相等
-                return request->reqHeaders[i].value;
-            }
-        }
-    }
-    return NULL;
-}
-
-char* splitRequestLine(const char* start, const char* end, const char* sub, char** ptr) {
-    char* space = (char*) end;
-    if (sub) {
-        space = memmem(start, end - start, sub, strlen(sub));
-        errif_exit(space == NULL, "splitRequestLine_1");
-    }
-    int length = space - start;  // 请求方式长度 Get Post...
-    char* tmp = (char*) malloc(length + 1);
-    bzero(tmp, length + 1);
-    errif_exit(tmp == NULL, "parseHttpRequestLine_2");
-    strncpy(tmp, start, length);
-    tmp[length] = '\0';
-    *ptr = tmp;
-    return space + 1;
-}
-
-bool parseHttpRequestLine(struct HttpRequest* request, struct Buffer* readBuf) {
-    // 读出请求行, 保存字符串起始地址
-    char* end = bufferFindCRLF(readBuf);
-    // 保存字符串结束地址
-    char* start = readBuf->data + readBuf->readPos;
+bool HttpRequest::parseRequestLine(Buffer* readBuf) {
+    // 读出请求行, 保存字符串结束地址
+    char* end = readBuf->findCRLF();
+    // 保存字符串起始地址
+    char* start = readBuf->data();
     // 请求行总长度
     int lineLen = end - start;
     if (lineLen) {
         // Get /xxx/xx.xx http/x.x
         // 请求方式
-        start = splitRequestLine(start, end, " ", &request->method);
-        start = splitRequestLine(start, end, " ", &request->url);
-        splitRequestLine(start, end, NULL, &request->version);
-#if 0
-        char* space = memmem(start, lineLen, " ", 1);
-        errif_exit(space == NULL, "parseHttpRequestLine_1");
-        int methodLen = space - start;  // 请求方式长度 Get Post...
-        request->method = (char*) malloc(methodLen + 1);
-        errif_exit(request->method == NULL, "parseHttpRequestLine_2");
-        strncpy(request->method, start, methodLen);
-        request->method[methodLen] = '\0';
-        // 请求的静态资源
-        start = space + 1;
-        space = memmem(start, end - start, " ", 1);
-        errif_exit(space == NULL, "parseHttpRequestLine_3");
-        int urlLen = space - start;  // 请求方式长度 Get Post...
-        request->url = (char*) malloc(urlLen + 1);
-        errif_exit(request->url == NULL, "parseHttpRequestLine_4");
-        strncpy(request->url, start, urlLen);
-        request->url[urlLen] = '\0';
-        // http版本
-        start = space + 1;
-        request->version = (char*) malloc(end - start + 1);
-        errif_exit(request->version == NULL, "parseHttpRequestLine_4");
-        strncpy(request->version, start, end - start);
-        request->version[end - start] = '\0';
-#endif
+        auto methodFunc = std::bind(&HttpRequest::setMethod, this, std::placeholders::_1);
+        auto urlFunc = std::bind(&HttpRequest::setUrl, this, std::placeholders::_1);
+        auto verFunc = std::bind(&HttpRequest::setVersion, this, std::placeholders::_1);
+        start = splitRequestLine(start, end, " ", methodFunc);
+        start = splitRequestLine(start, end, " ", urlFunc);
+        splitRequestLine(start, end, NULL, verFunc);
         // 为解析请求头做准备
-        readBuf->readPos += (lineLen + 2);  // 2: "\r\n"
+        readBuf->readPosIncrease(lineLen + 2);  // 2: "\r\n"
 
         // 修改状态
-        request->curState = ParseReqHeaders;
+        setStatus(ProcessStatus::ParseReqHeaders);
         return true;
     }
     return false;
 }
 
-bool parseHttpRequestHeader(struct HttpRequest* request, struct Buffer* readBuf) {
-    char* end = bufferFindCRLF(readBuf);
+bool HttpRequest::parseRequestHeader(Buffer* readBuf) {
+    char* end = readBuf->findCRLF();
     if (end) {
-        char* start = readBuf->data + readBuf->readPos;
+        char* start = readBuf->data();
         int lineLen = end - start;
         // 基于:搜索字符串
-        char* middle = memmem(start, lineLen, ": ", 2);
-        if (middle) {
-            int tmpLen = middle - start;  // key长度
-            char* key = (char*) malloc(tmpLen + 1);
-            errif_exit(key == NULL, "parseHttpRequestHeader_1");
-            strncpy(key, start, tmpLen);
-            key[tmpLen] = '\0';
+        char* middle = static_cast<char*>(memmem(start, lineLen, ": ", 2));
+        if (middle != nullptr) {
+            int keyLen = middle - start;      // key长度
+            int valueLen = end - middle - 2;  // value长度
+            if (keyLen > 0 && valueLen > 0) {
+                std::string key(start, keyLen);
+                std::string value(middle + 2, valueLen);
+                addHeader(key, value);
+            }
 
-            tmpLen = end - middle - 2;  // value长度
-            char* value = (char*) malloc(tmpLen + 1);
-            errif_exit(value == NULL, "parseHttpRequestHeader_2");
-            strncpy(value, middle + 2, tmpLen);
-            key[tmpLen] = '\0';
-
-            httpRequestAddHeader(request, key, value);
             // 移动读数据位置
-            readBuf->readPos += (lineLen + 2);
+            readBuf->readPosIncrease(lineLen + 2);
         } else {
             // 请求头解析完毕
-            readBuf->readPos += 2;
+            readBuf->readPosIncrease(2);
             // 修改解析状态
             // 忽略POST请求,按照GET设置
-            request->curState = ParseReqDone;
+            m_curState = ProcessStatus::ParseReqDone;
         }
         return true;
     }
     return false;
 }
 
-bool parseHttpRequest(struct HttpRequest* request, struct Buffer* readBuf,
-                      struct HttpResponse* response, struct Buffer* sendBuf, int socket) {
+bool HttpRequest::parseHttpRequest(Buffer* readBuf, HttpResponse* response, Buffer* sendBuf, int socket) {
     bool result = true;
-    while (request->curState != ParseReqDone) {
-        switch (request->curState) {
-            case ParseReqLine:
-                result = parseHttpRequestLine(request, readBuf);
+    while (m_curState != ProcessStatus::ParseReqDone) {
+        switch (m_curState) {
+            case ProcessStatus::ParseReqLine:
+                result = parseRequestLine(readBuf);
                 break;
-            case ParseReqHeaders:
-                result = parseHttpRequestHeader(request, readBuf);
+            case ProcessStatus::ParseReqHeaders:
+                result = parseRequestHeader(readBuf);
                 break;
-            case ParseReqBody:
+            case ProcessStatus::ParseReqBody:
                 printf("POST REQUEST.\n");
                 break;
             default:
                 break;
         }
     }
-    if (result && request->curState == ParseReqDone) {
+    if (result && m_curState == ProcessStatus::ParseReqDone) {
         // 1. 根据解析出的数据,对客户端的请求做出处理
-        int res = processHttpRequest(request, response);
+        int res = processHttpRequest(response);
         if (res == false) {
             result = false;
         } else {
             DEBUG("解析数据完成.");
             // 2. 组织响应数据并发送给客户端
-            httpResponsePrepareMsg(response, sendBuf, socket);
+            // httpResponsePrepareMsg(response, sendBuf, socket);
         }
     }
-    request->curState = ParseReqLine;  // 状态还原, 保证能处理后面的http请求
+    m_curState = ProcessStatus::ParseReqLine;  // 状态还原, 保证能处理后面的http请求
     return result;
 }
 
-// 解析基于GET的http请求
-bool processHttpRequest(struct HttpRequest* request, struct HttpResponse* response) {
-    if (strcasecmp(request->method, "get") != 0) {  // strcasecmp 不区分大小写
+bool HttpRequest::processHttpRequest(HttpResponse* response) {
+    if (strcasecmp(m_method.data(), "get") != 0) {  // strcasecmp 不区分大小写
         return false;
     }
-    decodeMsg(request->url, request->url);
-    printf("request.url: %s, its length: %ld\n", request->url, strlen(request->url));
-    char* path = (char*) malloc(strlen(request->url) + 2);
+    m_url = decodeMsg(m_url);
+    char* path = (char*) malloc(m_url.size() + 2);
     // 格式化访问的资源路径, 在最前面加上'.'来访问本地目录
     path[0] = '.';
-    path[strlen(request->url) + 1] = '\0';
-    memcpy(path + 1, request->url, strlen(request->url));
-    free(request->url);
-    request->url = path;
+    path[m_url.size() + 1] = '\0';
+    memcpy(path + 1, m_url.data(), m_url.size());
 
-    printf("method: %s, path: %s, request.url: %s\n", request->method, path, request->url);
+    printf("method: %s, path: %s, request.url: %s\n", m_method, path, m_url);
 
     // 获取文件属性, 判断是文件还是目录
     struct stat st;
-    int ret = stat(request->url, &st);
-    if (ret == -1) {
-        // 文件不存在 -> 回复404
-        // sendHeadMsg(cfd, 404, "Not Found", getFileType(".html"), -1);
-        // sendFile("404.html", cfd);
-        strcpy(response->fileName, "404.html");
-        response->statusCode = NotFound;
-        strcpy(response->statusMsg, "Not Found");
-        // 响应头
-        httpResponseAddHeader(response, "Content-type", getFileType(".html"));
-        response->sendDataFunc = sendFile;
-        return true;
-    }
-    strcpy(response->fileName, request->url);
-    response->statusCode = OK;
-    strcpy(response->statusMsg, "OK");
-    // 判断是否是目录
-    if (S_ISDIR(st.st_mode)) {
-        // 目录, 返回目录中的内容
-        // sendHeadMsg(cfd, 200, "OK", getFileType(".html"), -1);
-        // sendDir(path, cfd);
-        // 响应头
-        httpResponseAddHeader(response, "Content-type", getFileType(".html"));
-        httpResponseAddHeader(response, "Content-length", "-1");
-        response->sendDataFunc = sendDir;
-    } else {
-        // 文件, 返回文件内容
-        // sendHeadMsg(cfd, 200, "OK", getFileType(path), st.st_size);
-        // sendFile(path, cfd);
-        // 响应头
-        char tmp[32] = {0};
-        sprintf(tmp, "%ld", st.st_size);
-        httpResponseAddHeader(response, "Content-type", getFileType(request->url));
-        httpResponseAddHeader(response, "Content-length", tmp);
-        response->sendDataFunc = sendFile;
-    }
+    int ret = stat(path, &st);  // TODO
+    // if (ret == -1) {
+    //     // 文件不存在 -> 回复404
+    //     // sendHeadMsg(cfd, 404, "Not Found", getFileType(".html"), -1);
+    //     // sendFile("404.html", cfd);
+    //     strcpy(response->fileName, "404.html");
+    //     response->statusCode = NotFound;
+    //     strcpy(response->statusMsg, "Not Found");
+    //     // 响应头
+    //     httpResponseAddHeader(response, "Content-type", getFileType(".html"));
+    //     response->sendDataFunc = sendFile;
+    //     return true;
+    // }
+    // strcpy(response->fileName, request->url);
+    // response->statusCode = OK;
+    // strcpy(response->statusMsg, "OK");
+    // // 判断是否是目录
+    // if (S_ISDIR(st.st_mode)) {
+    //     // 目录, 返回目录中的内容
+    //     // sendHeadMsg(cfd, 200, "OK", getFileType(".html"), -1);
+    //     // sendDir(path, cfd);
+    //     // 响应头
+    //     httpResponseAddHeader(response, "Content-type", getFileType(".html"));
+    //     httpResponseAddHeader(response, "Content-length", "-1");
+    //     response->sendDataFunc = sendDir;
+    // } else {
+    //     // 文件, 返回文件内容
+    //     // sendHeadMsg(cfd, 200, "OK", getFileType(path), st.st_size);
+    //     // sendFile(path, cfd);
+    //     // 响应头
+    //     char tmp[32] = {0};
+    //     sprintf(tmp, "%ld", st.st_size);
+    //     httpResponseAddHeader(response, "Content-type", getFileType(request->url));
+    //     httpResponseAddHeader(response, "Content-length", tmp);
+    //     response->sendDataFunc = sendFile;
+    // }
     return true;
 }
 
+void HttpRequest::sendFile(const std::string file, Buffer* sendBuf, int cfd) {
+    // 1. 打开文件
+    int fd = open(file.data(), O_RDONLY);
+    assert(fd > 0);
+#if 1
+    char buf[1024];
+    while (true) {
+        bzero(buf, sizeof(buf));
+        int len = read(fd, buf, sizeof(buf));
+        if (len > 0) {
+            // send(cfd, buf, len, 0);
+            sendBuf->appendString(buf, len);
+#ifndef MSG_SEND_AUTO
+            sendBuf->sendData(cfd);
+#endif  // MSG_SEND_AUTO
+        } else if (len < 0) {
+            close(fd);
+            perror("sendFile read");
+            return;
+        } else
+            break;
+    }
+#else
+    off_t offset = 0;
+    int size_file = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+    while (offset < size_file) {                         // sendfile中有块缓存,若文件过大,需不断调用该函数.第三个参数会自动改为本次发送的偏移量
+        sendfile(cfd, fd, &offset, size_file - offset);  // 使用系统提供函数来发送文件
+    }
+#endif
+    close(fd);
+    return;
+}
+
+void HttpRequest::sendDir(const std::string dir, Buffer* sendBuf, int cfd) {
+    char buf[4096] = {0};
+    sprintf(buf, "<html><head><title>%s</title></head><body><table>", dir);
+    struct dirent** namelist;
+    int num = scandir(dir.data(), &namelist, NULL, alphasort);
+    for (int i = 0; i < num; ++i) {
+        // 取出文件名
+        char* name = namelist[i]->d_name;
+        struct stat st;
+        char subPath[1024] = {0};
+        sprintf(subPath, "%s/%s", dir, name);
+        stat(subPath, &st);
+        if (S_ISDIR(st.st_mode)) {
+            sprintf(buf + strlen(buf), "<tr><td><a href=\"%s/\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);
+        } else {
+            sprintf(buf + strlen(buf), "<tr><td><a href=\"%s\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);
+        }
+        // send(cfd, buf, strlen(buf), 0);
+        sendBuf->appendString(buf);
+#ifndef MSG_SEND_AUTO
+        sendBuf->sendData(cfd);
+#endif  // MSG_SEND_AUTO
+        bzero(buf, sizeof(buf));
+        free(namelist[i]);
+    }
+    sprintf(buf, "</table></body></html>");
+    // send(cfd, buf, strlen(buf), 0);
+    sendBuf->appendString(buf);
+#ifndef MSG_SEND_AUTO
+    sendBuf->sendData(cfd);
+#endif  // MSG_SEND_AUTO
+    free(namelist);
+    return;
+}
+
+char* HttpRequest::splitRequestLine(const char* start, const char* end, const char* sub, std::function<void(std::string)> callback) {
+    char* space = const_cast<char*>(end);
+    if (sub) {
+        space = static_cast<char*>(memmem(start, end - start, sub, strlen(sub)));
+        errif_exit(space == nullptr, "splitRequestLine_1");
+    }
+    int length = space - start;  // 请求方式长度 Get Post...
+    callback(std::string(start, length));
+    return space + 1;
+}
+
 // 将字符转换为整形数
-int hexToDec(char c) {
+int HttpRequest::hexToDec(char c) {
     if (c >= '0' && c <= '9')
         return c - '0';
     if (c >= 'a' && c <= 'f')
@@ -273,31 +269,34 @@ int hexToDec(char c) {
 
 // 解码
 // to 存储解码之后的数据, 传出参数, from被解码的数据, 传入参数
-void decodeMsg(char* to, const char* from) {
-    for (; *from != '\0'; ++to, ++from) {
+std::string HttpRequest::decodeMsg(const std::string msg) {
+    const char* from = msg.data();
+    std::string str = std::string();
+    for (; *from != '\0'; ++from) {
         // isxdigit -> 判断字符是不是16进制格式, 取值在 0-f
         // Linux%E5%86%85%E6%A0%B8.jpg
         if (from[0] == '%' && isxdigit(from[1]) && isxdigit(from[2])) {
             // 将16进制的数 -> 十进制 将这个数值赋值给了字符 int -> char
             // B2 == 178
             // 将3个字符, 变成了一个字符, 这个字符就是原始数据
-            *to = hexToDec(from[1]) * 16 + hexToDec(from[2]);
+            str.append(1, hexToDec(from[1]) * 16 + hexToDec(from[2]));
 
             // 跳过 from[1] 和 from[2] 因此在当前循环中已经处理过了
             from += 2;
         } else {
             // 字符拷贝, 赋值
-            *to = *from;
+            str.append(1, *from);
         }
     }
-    *to = '\0';
+    str.append(1, '\0');
+    return str;
 }
 
 // 根据文件后缀返回http响应头中的content-type
-const char* getFileType(const char* name) {
+const std::string HttpRequest::getFileType(const std::string name) {
     // a.jpg a.mp4 a.html
     // 自右向左查找‘.’字符, 如不存在返回NULL
-    const char* dot = strrchr(name, '.');
+    const char* dot = strrchr(name.data(), '.');
     if (dot == NULL)
         return "text/plain; charset=utf-8";  // 纯文本
     if (strcmp(dot, ".html") == 0 || strcmp(dot, ".htm") == 0)
@@ -334,73 +333,4 @@ const char* getFileType(const char* name) {
         return "application/pdf";
 
     return "text/plain; charset=utf-8";
-}
-
-void sendFile(const char* file, struct Buffer* sendBuf, int cfd) {
-    // 1. 打开文件
-    int fd = open(file, O_RDONLY);
-    assert(fd > 0);
-#if 0
-    char buf[1024];
-    while (true) {
-        bzero(buf, sizeof(buf));
-        int len = read(fd, buf, sizeof(buf));
-        if (len > 0) {
-            // send(cfd, buf, len, 0);
-            bufferAppendData(sendBuf, buf, len);
-#ifndef MSG_SEND_AUTO
-            bufferSendData(sendBuf, cfd);
-#endif  // MSG_SEND_AUTO
-        } else if (len < 0) {
-            close(fd);
-            perror("sendFile read");
-            return;
-        } else
-            break;
-    }
-#else
-    off_t offset = 0;
-    int size_file = lseek(fd, 0, SEEK_END);
-    lseek(fd, 0, SEEK_SET);
-    while (offset < size_file) {                         // sendfile中有块缓存,若文件过大,需不断调用该函数.第三个参数会自动改为本次发送的偏移量
-        sendfile(cfd, fd, &offset, size_file - offset);  // 使用系统提供函数来发送文件
-    }
-#endif
-    close(fd);
-    return;
-}
-
-void sendDir(const char* dir, struct Buffer* sendBuf, int cfd) {
-    char buf[4096] = {0};
-    sprintf(buf, "<html><head><title>%s</title></head><body><table>", dir);
-    struct dirent** namelist;
-    int num = scandir(dir, &namelist, NULL, alphasort);
-    for (int i = 0; i < num; ++i) {
-        // 取出文件名
-        char* name = namelist[i]->d_name;
-        struct stat st;
-        char subPath[1024] = {0};
-        sprintf(subPath, "%s/%s", dir, name);
-        stat(subPath, &st);
-        if (S_ISDIR(st.st_mode)) {
-            sprintf(buf + strlen(buf), "<tr><td><a href=\"%s/\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);
-        } else {
-            sprintf(buf + strlen(buf), "<tr><td><a href=\"%s\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);
-        }
-        // send(cfd, buf, strlen(buf), 0);
-        bufferAppendString(sendBuf, buf);
-#ifndef MSG_SEND_AUTO
-        bufferSendData(sendBuf, cfd);
-#endif  // MSG_SEND_AUTO
-        bzero(buf, sizeof(buf));
-        free(namelist[i]);
-    }
-    sprintf(buf, "</table></body></html>");
-    // send(cfd, buf, strlen(buf), 0);
-    bufferAppendString(sendBuf, buf);
-#ifndef MSG_SEND_AUTO
-    bufferSendData(sendBuf, cfd);
-#endif  // MSG_SEND_AUTO
-    free(namelist);
-    return;
 }
