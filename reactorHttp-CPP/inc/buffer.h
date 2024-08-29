@@ -23,6 +23,11 @@ public:
     // 发送数据
     int sendData(int socket);
 
+    // 得到读数据的起始位置
+    inline char* data() { return m_data + m_readPos; }
+    // 更改读位置
+    inline int readPosIncrease(int count) { return (m_readPos += count); }
+
 private:
     // 指向内存的指针
     char* m_data;
