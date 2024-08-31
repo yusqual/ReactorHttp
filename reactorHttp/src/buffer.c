@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "buffer.h"
 #include <sys/uio.h>
 #include <sys/types.h>
