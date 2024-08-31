@@ -15,6 +15,7 @@ EventLoop::EventLoop(const std::string threadName, ThreadPool* pool) {
     m_threadId = std::this_thread::get_id();
     m_threadName = threadName == std::string() ? "MainThread" : threadName;
     m_dispatcher = new EpollDispatcher(this);  // 使用epoll
+    m_channelMap.clear();
     if (threadName == std::string()) {
         int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, m_socketPair);
         errif_exit(ret == -1, "eventLoopInitEx_socketpair");
@@ -23,11 +24,11 @@ EventLoop::EventLoop(const std::string threadName, ThreadPool* pool) {
 
         // std::bind - 绑定
         auto obj = std::bind(&EventLoop::readLocalMsg, this);
-        Channel* channel = new Channel(m_socketPair[1], FDEvent::ReadEvent, obj, nullptr, this);
+        Channel* channel = new Channel(m_socketPair[1], FDEvent::ReadEvent, obj, nullptr, nullptr, this);
         addTask(channel, ElemType::ADD);  // 添加channel到任务队列
     } else {                              // 子线程把主线程的socketPair[1]放到自己的evloop里面
         auto obj = std::bind(&EventLoop::readLocalMsg, this);
-        Channel* channel = new Channel(pool->getMainLoop()->getSocketPair(), FDEvent::ReadEvent, obj, nullptr, this);
+        Channel* channel = new Channel(pool->getMainLoop()->getSocketPair(), FDEvent::ReadEvent, obj, nullptr, nullptr, this);
         addTask(channel, ElemType::ADD);  // 添加channel到任务队列
     }
 }
@@ -88,8 +89,8 @@ bool EventLoop::addTask(Channel* channel, ElemType type) {
 }
 
 bool EventLoop::processTaskQ() {
-    m_mutex.lock();
     while (!m_taskQ.empty()) {
+        m_mutex.lock();
         ChannelElement* node = m_taskQ.front();
         m_taskQ.pop();
         m_mutex.unlock();

@@ -42,7 +42,7 @@ bool PollDispatcher::remove() {
         }
     }
     // 通过channel释放对应的TcpConnection资源
-    // m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
+    m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
     return false;
 }
 
@@ -65,10 +65,10 @@ bool PollDispatcher::dispatch(int timeout) {
     for (int i = 0, done = 0; i <= m_maxfd && done < count; ++i) {
         if (m_fds[i].fd == -1) continue;
         if (m_fds[i].revents & POLLIN) {
-            // eventActivate(m_evLoop, data->fds[i].fd, (int)FDEvent::ReadEvent);
+            m_evLoop->eventActive(m_fds[i].fd, (int)FDEvent::ReadEvent);
         }
         if (m_fds[i].revents & POLLOUT) {
-            // eventActivate(m_evLoop, data->fds[i].fd, (int)FDEvent::WriteEvent);
+            m_evLoop->eventActive(m_fds[i].fd, (int)FDEvent::WriteEvent);
         }
         ++done;
     }

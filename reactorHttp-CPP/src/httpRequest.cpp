@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+// #define _GNU_SOURCE
 #include "httpRequest.h"
 #include <strings.h>
 #include <sys/stat.h>
@@ -114,7 +114,7 @@ bool HttpRequest::parseHttpRequest(Buffer* readBuf, HttpResponse* response, Buff
         } else {
             DEBUG("解析数据完成.");
             // 2. 组织响应数据并发送给客户端
-            // httpResponsePrepareMsg(response, sendBuf, socket);
+            response->prepareMsg(sendBuf, socket);
         }
     }
     m_curState = ProcessStatus::ParseReqLine;  // 状态还原, 保证能处理后面的http请求
@@ -132,46 +132,42 @@ bool HttpRequest::processHttpRequest(HttpResponse* response) {
     path[m_url.size() + 1] = '\0';
     memcpy(path + 1, m_url.data(), m_url.size());
 
-    printf("method: %s, path: %s, request.url: %s\n", m_method, path, m_url);
+    printf("method: %s, path: %s, request.url: %s\n", m_method.data(), path, m_url.data());
 
     // 获取文件属性, 判断是文件还是目录
     struct stat st;
     int ret = stat(path, &st);  // TODO
-    // if (ret == -1) {
-    //     // 文件不存在 -> 回复404
-    //     // sendHeadMsg(cfd, 404, "Not Found", getFileType(".html"), -1);
-    //     // sendFile("404.html", cfd);
-    //     strcpy(response->fileName, "404.html");
-    //     response->statusCode = NotFound;
-    //     strcpy(response->statusMsg, "Not Found");
-    //     // 响应头
-    //     httpResponseAddHeader(response, "Content-type", getFileType(".html"));
-    //     response->sendDataFunc = sendFile;
-    //     return true;
-    // }
-    // strcpy(response->fileName, request->url);
-    // response->statusCode = OK;
-    // strcpy(response->statusMsg, "OK");
-    // // 判断是否是目录
-    // if (S_ISDIR(st.st_mode)) {
-    //     // 目录, 返回目录中的内容
-    //     // sendHeadMsg(cfd, 200, "OK", getFileType(".html"), -1);
-    //     // sendDir(path, cfd);
-    //     // 响应头
-    //     httpResponseAddHeader(response, "Content-type", getFileType(".html"));
-    //     httpResponseAddHeader(response, "Content-length", "-1");
-    //     response->sendDataFunc = sendDir;
-    // } else {
-    //     // 文件, 返回文件内容
-    //     // sendHeadMsg(cfd, 200, "OK", getFileType(path), st.st_size);
-    //     // sendFile(path, cfd);
-    //     // 响应头
-    //     char tmp[32] = {0};
-    //     sprintf(tmp, "%ld", st.st_size);
-    //     httpResponseAddHeader(response, "Content-type", getFileType(request->url));
-    //     httpResponseAddHeader(response, "Content-length", tmp);
-    //     response->sendDataFunc = sendFile;
-    // }
+    if (ret == -1) {
+        // 文件不存在 -> 回复404
+        // sendHeadMsg(cfd, 404, "Not Found", getFileType(".html"), -1);
+        // sendFile("404.html", cfd);
+        response->setFileName("404.html");
+        response->setStatusCode(HttpStatusCode::NotFound);
+        // 响应头
+        response->addHeader("Content-type", getFileType(".html"));
+        
+        response->m_sendDataFunc = sendFile;
+        return true;
+    }
+    response->setFileName(path);
+    response->setStatusCode(HttpStatusCode::OK);
+    // 判断是否是目录
+    if (S_ISDIR(st.st_mode)) {
+        // 目录, 返回目录中的内容
+        // sendHeadMsg(cfd, 200, "OK", getFileType(".html"), -1);
+        // sendDir(path, cfd);
+        // 响应头
+        response->addHeader("Content-type", getFileType(".html"));
+        response->m_sendDataFunc = sendDir;
+    } else {
+        // 文件, 返回文件内容
+        // sendHeadMsg(cfd, 200, "OK", getFileType(path), st.st_size);
+        // sendFile(path, cfd);
+        // 响应头
+        response->addHeader("Content-type", getFileType(path));
+        response->addHeader("Content-length", std::to_string(st.st_size));
+        response->m_sendDataFunc = sendFile;
+    }
     return true;
 }
 
@@ -211,7 +207,7 @@ void HttpRequest::sendFile(const std::string file, Buffer* sendBuf, int cfd) {
 
 void HttpRequest::sendDir(const std::string dir, Buffer* sendBuf, int cfd) {
     char buf[4096] = {0};
-    sprintf(buf, "<html><head><title>%s</title></head><body><table>", dir);
+    sprintf(buf, "<html><head><title>%s</title></head><body><table>", dir.data());
     struct dirent** namelist;
     int num = scandir(dir.data(), &namelist, NULL, alphasort);
     for (int i = 0; i < num; ++i) {
@@ -219,7 +215,7 @@ void HttpRequest::sendDir(const std::string dir, Buffer* sendBuf, int cfd) {
         char* name = namelist[i]->d_name;
         struct stat st;
         char subPath[1024] = {0};
-        sprintf(subPath, "%s/%s", dir, name);
+        sprintf(subPath, "%s/%s", dir.data(), name);
         stat(subPath, &st);
         if (S_ISDIR(st.st_mode)) {
             sprintf(buf + strlen(buf), "<tr><td><a href=\"%s/\">%s</a></td><td>%ld</td></tr>", name, name, st.st_size);

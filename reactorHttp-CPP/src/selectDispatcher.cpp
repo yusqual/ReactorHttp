@@ -21,7 +21,7 @@ bool SelectDispatcher::remove() {
     if (m_channel->getSocket() >= m_maxSize) return false;
     clrFdSet();
     // 通过channel释放对应的TcpConnection资源
-    // m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
+    m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
     return true;
 }
 
@@ -42,10 +42,10 @@ bool SelectDispatcher::dispatch(int timeout) {
     errif_exit(count == -1, "select");
     for (int i = 0; i < m_maxSize; ++i) {
         if (FD_ISSET(i, &rdtmp)) {
-            // eventActivate(eventLoop, i, ReadEvent);
+            m_evLoop->eventActive(i, (int)FDEvent::ReadEvent);
         }
         if (FD_ISSET(i, &wrtmp)) {
-            // eventActivate(eventLoop, i, WriteEvent);
+            m_evLoop->eventActive(i, (int)FDEvent::WriteEvent);
         }
     }
     return true;

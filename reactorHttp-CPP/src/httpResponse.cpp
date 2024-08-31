@@ -2,55 +2,38 @@
 #include <strings.h>
 #include "log.h"
 
-const int res_header_size = 16;
-
-struct HttpResponse* httpResponseInit() {
-    struct HttpResponse* response = (struct HttpResponse*) malloc(sizeof(struct HttpResponse));
-    errif_exit(response == NULL, "httpResponseInit_1");
-    response->headerNum = 0;
-    response->headers = (struct ResponseHeader*) malloc(res_header_size * sizeof(struct ResponseHeader));
-    errif_exit(response->headers == NULL, "httpResponseInit_2");
-    response->statusCode = Unknown;
-    bzero(response->headers, sizeof(response->headers));
-    bzero(response->statusMsg, sizeof(response->statusMsg));
-    bzero(response->fileName, sizeof(response->fileName));
-    // 函数指针
-    response->sendDataFunc = NULL;
-    return response;
+HttpResponse::HttpResponse(): m_statusCode(HttpStatusCode::Unknown), m_fileName(std::string()), m_sendDataFunc(nullptr) {
+    m_headers.clear();
 }
 
-void httpResponseDestroy(struct HttpResponse* response) {
-    if (response) {
-        free(response->headers);
-        free(response);
-    }
+HttpResponse::~HttpResponse() {
 }
 
-void httpResponseAddHeader(struct HttpResponse* response, const char* key, const char* value) {
-    if (response == NULL || key == NULL || value == NULL) return;
-    strcpy(response->headers[response->headerNum].key, key);
-    strcpy(response->headers[response->headerNum].value, value);
-    ++response->headerNum;
+void HttpResponse::addHeader(const std::string key, const std::string value) {
+    if (key.empty() || value.empty()) return;
+    m_headers.insert(std::make_pair(key, value));
 }
 
-void httpResponsePrepareMsg(struct HttpResponse* response, struct Buffer* sendBuf, int socket) {
+void HttpResponse::prepareMsg(Buffer* sendBuf, int socket) {
     // 状态行
     char tmp[1024] = {0};
-    sprintf(tmp, "HTTP/1.1 %d %s\r\n", response->statusCode, response->statusMsg);
-    bufferAppendString(sendBuf, tmp);
+    int code = static_cast<int>(m_statusCode);
+    sprintf(tmp, "HTTP/1.1 %d %s\r\n", code, m_info.at(code).data());
+    sendBuf->appendString(tmp);
     // 响应头
-    for (int i = 0; i < response->headerNum; ++i) {
+    for (auto it = m_headers.begin(); it != m_headers.end(); ++it) {
         bzero(tmp, sizeof(tmp));
-        sprintf(tmp, "%s: %s\r\n", response->headers[i].key, response->headers[i].value);
-        bufferAppendString(sendBuf, tmp);
+        sprintf(tmp, "%s: %s\r\n", it->first.data(), it->second.data());
+        sendBuf->appendString(tmp);
     }
     // 空行
-    bufferAppendString(sendBuf, "\r\n");
+    sendBuf->appendString("\r\n");
 #ifndef MSG_SEND_AUTO
-    bufferSendData(sendBuf, socket);
+    sendBuf->sendData(socket);
 #endif  // MSG_SEND_AUTO
 
-    DEBUG("回复的数据: %s", response->fileName);
+    DEBUG("回复的数据: %s", m_fileName.data());
     // 回复的数据
-    response->sendDataFunc(response->fileName, sendBuf, socket);
+    m_sendDataFunc(m_fileName, sendBuf, socket);
 }
+

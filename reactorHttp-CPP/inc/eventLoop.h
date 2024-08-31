@@ -20,6 +20,7 @@ struct ChannelElement {
     Channel* channel;
 };
 class Dispatcher;
+class ThreadPool;
 class EventLoop {
 public:
     EventLoop();

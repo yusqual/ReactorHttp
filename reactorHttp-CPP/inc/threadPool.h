@@ -4,7 +4,7 @@
 #include "workerThread.h"
 #include <vector>
 
-struct WorkerThread;
+class WorkerThread;
 
 // 定义线程池
 class ThreadPool {

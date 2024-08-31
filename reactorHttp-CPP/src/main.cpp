@@ -20,7 +20,7 @@ int main(int argc, const char* argv[]) {
     }
 
     // start server
-    struct TcpServer* server = tcpServerInit(port, 4);
-    tcpServerRun(server);
+    TcpServer* server = new TcpServer(port, 4);
+    server->run();
 
 }

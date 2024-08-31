@@ -25,7 +25,7 @@ bool EpollDispatcher::remove() {
     bool ret = epollCtl(EPOLL_CTL_DEL);
     errif_exit(ret == false, "epoll_ctl_del", false);
     // 通过channel释放对应的TcpConnection资源
-    // m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
+    m_channel->destroyCallback(const_cast<void*>(m_channel->getArg()));
     return ret;
 }
 
@@ -47,10 +47,10 @@ bool EpollDispatcher::dispatch(int timeout) {
             continue;
         }
         if (events & EPOLLIN) {  // 读事件
-            // eventActivate(eventLoop, fd, FDEvent::ReadEvent);
+            m_evLoop->eventActive(fd, (int)FDEvent::ReadEvent);
         }
         if (events & EPOLLOUT) {  // 写事件
-            // eventActivate(eventLoop, fd, FDEvent::WriteEvent);
+            m_evLoop->eventActive(fd, (int)FDEvent::WriteEvent);
         }
     }
     return true;

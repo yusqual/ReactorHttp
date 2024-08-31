@@ -30,7 +30,7 @@ bool Buffer::sizeDetection(int size) {
             printf("bufferSizeDetection realloc failed.\n");
             return false;
         }
-        memset(tmp + m_capacity, 0, size);
+        memset((char*)tmp + m_capacity, 0, size);
         // 更新数据
         m_data = (char*)tmp;
         m_capacity += size;

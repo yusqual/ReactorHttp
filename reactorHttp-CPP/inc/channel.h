@@ -23,11 +23,12 @@ public:
     // 可调用对象包装器, 得到的是地址, 还没有调用.该方法可以指向类的非静态成员函数
     using handleFunc = std::function<int(void*)>;
     // 构造 -> 初始化一个Channel
-    Channel(int fd, FDEvent events, handleFunc readFunc, handleFunc writeFunc, void* arg);
+    Channel(int fd, FDEvent events, handleFunc readFunc, handleFunc writeFunc, handleFunc destroyFunc, void* arg);
 
     // 回调函数
     handleFunc readCallback;
     handleFunc writeCallback;
+    handleFunc destroyCallback;
 
     // 修改fd的写事件 (检测 or 不检测)
     void modifyWriteEvent(bool flag);

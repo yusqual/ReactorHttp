@@ -40,8 +40,8 @@ public:
     // 解析http请求协议
     bool processHttpRequest(HttpResponse* response);
 
-    void sendFile(const std::string file, Buffer* sendBuf, int cfd);
-    void sendDir(const std::string dir, Buffer* sendBuf, int cfd);
+    static void sendFile(const std::string file, Buffer* sendBuf, int cfd);
+    static void sendDir(const std::string dir, Buffer* sendBuf, int cfd);
 
     inline void setMethod(std::string method) { m_method = method; }
     inline void setUrl(std::string url) { m_url = url; }

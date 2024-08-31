@@ -34,14 +34,14 @@ void TcpServer::setListen() {
 }
 
 void TcpServer::run() {
+    DEBUG("服务器启动成功!");
     // 启动线程池
     m_threadPool->run();
     // 添加检测任务
-    Channel* channel = new Channel(m_lfd, FDEvent::ReadEvent, acceptConnection, nullptr, this);
+    Channel* channel = new Channel(m_lfd, FDEvent::ReadEvent, acceptConnection, nullptr, nullptr, this);
     m_mainLoop->addTask(channel, ElemType::ADD);
     // 启动反应堆模型
     m_mainLoop->run();
-    DEBUG("服务器启动成功!");
 }
 
 int TcpServer::acceptConnection(void* arg) {
@@ -49,8 +49,8 @@ int TcpServer::acceptConnection(void* arg) {
     int cfd = accept(server->m_lfd, NULL, NULL);
     // 从线程池中取出一个子线程的反应堆实例
     auto evLoop = server->m_threadPool->takeWorkerEventLoop();
-    DEBUG("mainThread accept, exec threadId: %d", evLoop->getThreadId());
+    // DEBUG("mainThread accept, exec threadId: %s", evLoop->getThreadId());
     // 将cfd放到TcpConnection中处理
-    // tcpConnectionInit(cfd, evLoop);
+    new TcpConnection(cfd, evLoop);
     return 0;
 }

@@ -13,6 +13,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 set(SOURCES  
     src/buffer.cpp
     src/channel.cpp
+    src/dispatcher.cpp
     src/epollDispatcher.cpp
     src/eventLoop.cpp
     src/httpRequest.cpp

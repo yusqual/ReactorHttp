@@ -3,8 +3,10 @@
 
 #include "eventLoop.h"
 #include "threadPool.h"
+#include <thread>
 #include <condition_variable>
-struct ThreadPool;
+class ThreadPool;
+class EventLoop;
 
 // 定义子线程对应的结构体
 class WorkerThread {
