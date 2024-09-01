@@ -27,8 +27,14 @@ bool SelectDispatcher::remove() {
 
 bool SelectDispatcher::modify() {
     if (m_channel->getSocket() >= m_maxSize) return false;
-    addFdSet();
-    clrFdSet();
+    if (m_channel->getEvent() & (int) FDEvent::ReadEvent) {
+        FD_SET(m_channel->getSocket(), &m_readfds);
+        FD_CLR(m_channel->getSocket(), &m_writefds);
+    }
+    if (m_channel->getEvent() & (int) FDEvent::WriteEvent) {
+        FD_SET(m_channel->getSocket(), &m_writefds);
+        FD_CLR(m_channel->getSocket(), &m_readfds);
+    }
     return true;
 }
 
@@ -42,10 +48,10 @@ bool SelectDispatcher::dispatch(int timeout) {
     errif_exit(count == -1, "select");
     for (int i = 0; i < m_maxSize; ++i) {
         if (FD_ISSET(i, &rdtmp)) {
-            m_evLoop->eventActive(i, (int)FDEvent::ReadEvent);
+            m_evLoop->eventActive(i, (int) FDEvent::ReadEvent);
         }
         if (FD_ISSET(i, &wrtmp)) {
-            m_evLoop->eventActive(i, (int)FDEvent::WriteEvent);
+            m_evLoop->eventActive(i, (int) FDEvent::WriteEvent);
         }
     }
     return true;

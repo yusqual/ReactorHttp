@@ -88,7 +88,7 @@ char* Buffer::findCRLF() {
 int Buffer::sendData(int socket) {
     int readable = readableSize();
     if (readable > 0) {
-        int count = send(socket, m_data + m_readPos, readable, 0);
+        int count = send(socket, m_data + m_readPos, readable, MSG_NOSIGNAL);
         if (count > 0) {
             m_readPos += count;
             usleep(1);
