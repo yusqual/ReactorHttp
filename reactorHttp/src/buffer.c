@@ -105,7 +105,7 @@ char* bufferFindCRLF(struct Buffer* buffer) {
 int bufferSendData(struct Buffer* buffer, int socket) {
     int readable = bufferReadableSize(buffer);
     if (readable > 0) {
-        int count = send(socket, buffer->data + buffer->readPos, readable, 0);
+        int count = send(socket, buffer->data + buffer->readPos, readable, MSG_NOSIGNAL);
         if (count > 0) {
             buffer->readPos += count;
             usleep(1);

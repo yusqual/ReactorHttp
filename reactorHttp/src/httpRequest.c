@@ -340,7 +340,7 @@ void sendFile(const char* file, struct Buffer* sendBuf, int cfd) {
     // 1. 打开文件
     int fd = open(file, O_RDONLY);
     assert(fd > 0);
-#if 0
+#if 1
     char buf[1024];
     while (true) {
         bzero(buf, sizeof(buf));
