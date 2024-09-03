@@ -58,33 +58,18 @@ bool PollDispatcher::modify() {
     return false;
 }
 
-// bool PollDispatcher::dispatch(int timeout) {
-//     int count = poll(m_fds, m_maxfd + 1, timeout);
-//     errif_exit(count == -1, "poll");
-//     for (int i = 0, done = 0; i <= m_maxfd && done < count; ++i) {
-//         if (m_fds[i].fd == -1) continue;
-//         if (m_fds[i].revents & POLLIN) {
-//             m_evLoop->eventActive(m_fds[i].fd, (int)FDEvent::ReadEvent);
-//             ++done;
-//         }
-//         if (m_fds[i].revents & POLLOUT) {
-//             m_evLoop->eventActive(m_fds[i].fd, (int)FDEvent::WriteEvent);
-//             ++done;
-//         }
-//     }
-//     return true;
-// }
-
 bool PollDispatcher::dispatch(int timeout) {
     int count = poll(m_fds, m_maxfd + 1, timeout);
     errif_exit(count == -1, "poll");
-    for (int i = 0; i <= m_maxfd; ++i) {
+    for (int i = 0, done = 0; i <= m_maxfd && done < count; ++i) {
         if (m_fds[i].fd == -1) continue;
         if (m_fds[i].revents & POLLIN) {
-            m_evLoop->eventActive(m_fds[i].fd, (int) FDEvent::ReadEvent);
+            m_evLoop->eventActive(m_fds[i].fd, (int)FDEvent::ReadEvent);
+            ++done;
         }
         if (m_fds[i].revents & POLLOUT) {
-            m_evLoop->eventActive(m_fds[i].fd, (int) FDEvent::WriteEvent);
+            m_evLoop->eventActive(m_fds[i].fd, (int)FDEvent::WriteEvent);
+            ++done;
         }
     }
     return true;
